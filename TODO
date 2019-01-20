@@ -1,0 +1,5 @@
+- psv-sfo = KO (missing entry ?)
+- psv-fself = OK
+- psv-vpk = OK (injected SFO=bad)
+- psv-velf
+	- remove deps : elf

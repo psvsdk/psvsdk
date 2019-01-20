@@ -1,0 +1,34 @@
+language: C
+dist: xenial
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    - llvm-toolchain-xenial-7
+    packages:
+    - libstdc++6
+    - clang-format-7
+    - lcov
+before_deploy:
+- git config --local user.name "Travis"
+- git config --local user.email "psvsdk@travis-ci.com"
+- git tag "$(date +'%y%m%d')"
+env:
+  global:
+  - CFLAGSS="-Wall -Wextra -Werror -Wno-missing-field-initializers -fdata-sections
+    -ffunction-sections -Wl,--gc-sections"
+  - OUT_DIR=/home/travis/.local/bin
+  - MAN_DIR=/home/travis/.local/share/man
+script:
+- make compile test package
+after_success:
+- make coverage
+deploy:
+  provider: releases
+  api_key:
+    secure: uWDM1g+trMKlHcKZm3SYCqqK0JTDD8uyht2M5Yce9kw0kzjNW603wBiIHu57QiWN9zr+BU+5K4HnoMfpJZHyHd4Gt1NrabsFVouXoFGcRZebVFCynvvyvvUoV+M70CY50+W81fy6jazRslVUGoRiHAE+KW42w1nWHckBLd3mqy5D5AkKhJwvfPL2Yc15rzQwPZNUo1J79ZDySOk5gMR+D2slZS9TY7aDC2gS3DEPcVjpGoHTAq3YzI/44NMsDvO6UyoOwkBa9D1scgSB+MqBLwa1y6TZ6CQ3b6I8hIT8bu/WnVIAqJ3x1J346KcMzJQPBfiZrR49+0Q4+Tw3odmDHiIA6fwARQw5bJd5qS0FUuSqBzpo/fH4MW9GOpWcuvUJvuu7aMP222MAHlQoUnhFmN6xdpsDhylvgS2Kp3keDdl/OCoJObXWfh+SQY5TYsDJR8ZgWbZXU6M2YKILYzUxfsPV5W2OSHwN/VmVo2J65KAb/0nn02Eh0Bw9m69uDoGE7+AuVCIYEIlcFw9FOQ0v+40rlxLt3TFXS54+EslBL9+ogZ/aq+RkkGK/47U9GgsiN2YJtqxx9tE1Ibu+nwqZz9Z0UUPb+cK1jFsl8UQzPdUx31mXKcTz3tzTvpO/qCEprIaQtYHpDSKz99a6Cv+OXGwj8RMa0bxSQ1MZRHZE9ko=
+  file_glob: true
+  file: "*.tar.gz"
+  skip_cleanup: true
+  on:
+    repo: psvsdk/psvsdk

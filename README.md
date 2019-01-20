@@ -1,2 +1,1 @@
-# psvsdk
-PlayStation Vita SDK
+docs/psvsdk.5.md
