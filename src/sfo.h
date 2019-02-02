@@ -49,15 +49,17 @@ The following SFO dump example shall demonstrate how those section are related:
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define PSF_MAGIC 0x46535000
 #define PSF_VERSION 0x00000101
-//#define PSF_TYPE_SPE 0
 #define PSF_TYPE_STR 2u
 #define PSF_TYPE_U32 4u
 #define little __attribute__((packed, scalar_storage_order("little-endian")))
 #define ALIGN(V) (((V) + ((4) - 1)) & ~((4) - 1))
+#define MIN(A,B) (A < B ? A : B)
 
 typedef struct little {
 	uint32_t magic;
@@ -71,45 +73,15 @@ typedef struct little {
 	uint16_t key_off;
 	uint8_t  alignment;
 	uint8_t  type;
-	uint32_t val_size;
+	uint32_t val_length;
 	uint32_t val_limit;
 	uint32_t val_off;
 } sfo_entry_t;
 
-typedef struct {
-	const char* key;
-	uint32_t    val_i; // hold the 'val_limit' size if `val_s` is set
-	const char* val_s;
-} psv_entry_t;
-
-int psv_sfo_dump(int in, int out) {
-	sfo_header_t hdr;
-	read(in, &hdr, sizeof(hdr));
-	dprintf(out, "HEADER %08X v%X, %i Entries <keys@%i,vals@%i>", hdr.magic, hdr.version, hdr.entry_count,
-		hdr.keys_off, hdr.vals_off);
-	dprintf(out, "\n\nENTRY: type alig key@ val@ size lim.");
-	sfo_entry_t entries[hdr.entry_count];
-	unsigned last_val = 0;
-	for (unsigned i = 0; i < hdr.entry_count; i++) {
-		sfo_entry_t ent;
-		read(in, &ent, sizeof(ent));
-		entries[i] = ent;
-		if (ent.val_off + ent.val_size > last_val)
-			last_val = ent.val_off + ent.val_size;
-
-		dprintf(out, "\n%5i: %4i %4i %4i %4i %4i %4i", i, ent.type, ent.alignment, ent.key_off, ent.val_off,
-			ent.val_size, ent.val_limit);
-	}
-	if (hdr.keys_off > hdr.vals_off) {
-		fprintf(stderr, "Value before keys are not supported for dumping\n");
-		return -1;
-	}
+typedef ssize_t(*sfo_emitter_t)(void*arg, const void*buf, size_t len);
+/*
+int psv_sfo_dump_key(int in, int out, sfo_header_t hdr, sfo_entry_t*entries) {
 	uint8_t c;
-	for (size_t i = (sizeof(sfo_header_t) + hdr.entry_count * sizeof(sfo_entry_t));
-	     i < hdr.keys_off && read(in, &c, sizeof(c)) > 0; i++) {
-		dprintf(out, "%02X", c);
-	}
-
 	dprintf(out, "\n\n  KEY:");
 	for (unsigned i = hdr.keys_off; i < hdr.vals_off && read(in, &c, sizeof(c)) > 0; i++) {
 		for (unsigned e = 0; e < hdr.entry_count; e++) {
@@ -117,80 +89,100 @@ int psv_sfo_dump(int in, int out) {
 				dprintf(out, "\n%5i: ", e);
 			}
 		}
-		dprintf(out, c ? "%c" : "\\0", c);
+		dprintf(out, (c < ' ' || c > '~') ? "\\x%02X" : "%c%s", c, c=='\\'?"\\":"");
 	}
-
-	sfo_entry_t* found_ent = NULL;
+}
+int psv_sfo_dump_val(int in, int out, sfo_header_t hdr, sfo_entry_t*entries, unsigned val_section_size) {
+	uint8_t c;
 	dprintf(out, "\n\nVALUE:");
-	for (unsigned i = 0; i < last_val && read(in, &c, sizeof(c)) > 0; i++) {
+	sfo_entry_t* found_ent = NULL;
+	for (unsigned i = 0; i < val_section_size && read(in, &c, sizeof(c)) > 0; i++) {
 		for (unsigned e = 0; e < hdr.entry_count; e++) {
 			if (i == entries[e].val_off) {
 				found_ent = &entries[e];
-				dprintf(out, "\n%5i: ", e);
+				dprintf(out, "\n%5i: %s", e, entries[e].type == 4 ? "0x" : "");
 			}
 		}
-		// if(found_ent && found_ent->val_size)
+		// if(found_ent && found_ent->val_length)
 		dprintf(out, (found_ent && found_ent->type == PSF_TYPE_STR) ? (c ? "%c" : "\\0") : "%02X", c);
+	}
+}
+int psv_sfo_dump(int in, int out) {
+	sfo_header_t hdr;
+	if(read(in, &hdr, sizeof(hdr))!=sizeof(hdr))return -1;
+	dprintf(out, "HEADER %08X v%X, %i Entries <keys@%i,vals@%i>", hdr.magic, hdr.version, hdr.entry_count, hdr.keys_off, hdr.vals_off);
+	dprintf(out, "\n\nENTRY: type alig key@ val@ size lim.");
+	sfo_entry_t entries[hdr.entry_count];
+
+	unsigned val_section_size = 0, key_section_size = 0;
+	for (unsigned i = 0; i < hdr.entry_count; i++) {
+		sfo_entry_t ent;
+		read(in, &ent, sizeof(ent));
+		entries[i] = ent;
+		if (ent.val_off + ent.val_length > val_section_size)
+			val_section_size = ent.val_off + ent.val_length;
+		if (ent.key_off > key_section_size)
+			key_section_size = ent.key_off;
+
+		dprintf(out, "\n%5i: %4i %4i %4i %4i %4i %4i", i, ent.type, ent.alignment, ent.key_off, ent.val_off,
+		        ent.val_length, ent.val_limit);
+	}
+	uint8_t c;
+	uint32_t end_pad = hdr.keys_off < hdr.vals_off ? hdr.keys_off : hdr.vals_off;
+	for (size_t i = (sizeof(hdr) + hdr.entry_count * sizeof(sfo_entry_t));
+	     i < end_pad && read(in, &c, sizeof(c)) > 0; i++) {
+		dprintf(out, "%02X", c);
+	}
+	if (hdr.keys_off > hdr.vals_off) {
+		fprintf(stderr, "WARNING Untested Value-before-keys dumping\n");
+		//TODO skip padding ??
+		psv_sfo_dump_val(in, out, hdr, entries, val_section_size);
+		psv_sfo_dump_key(in, out, hdr, entries);
+	} else {
+		psv_sfo_dump_key(in, out, hdr, entries);
+		psv_sfo_dump_val(in, out, hdr, entries, val_section_size);
 	}
 	dprintf(out, "\n");
 	return 0;
 }
-
-ssize_t psv_sfo_emit(psv_entry_t* first, psv_entry_t* last, ssize_t (*emiter)(void*, const void*, size_t), void* fd) {
-	for (psv_entry_t* e = first; e < last; e++) fprintf(stderr, "%s = /%s/%08X\n", e->key, e->val_s, e->val_i);
-
+*/
+ssize_t psv_sfo_emit(int count, char**keys, char**vals, sfo_entry_t* entries, sfo_emitter_t emitter, void* fd) {
 	/* emit HEADER */
 	ssize_t sum      = 0;
-	size_t  keys_off = sizeof(sfo_header_t) + sizeof(sfo_entry_t) * (last - first);
+	size_t  keys_off = sizeof(sfo_header_t) + count * sizeof(sfo_entry_t);
 	size_t  vals_off = keys_off;
-	for (psv_entry_t* e = first; e < last; e++) {
-		vals_off += strlen(e->key) + 1;
+	for (int i = 0; i < count; i++) {
+		vals_off += strlen(keys[i]) + 1;
 	}
 	sfo_header_t sfo_header = {
 	    .magic       = PSF_MAGIC,
 	    .version     = PSF_VERSION,
 	    .keys_off    = (uint32_t) keys_off,
 	    .vals_off    = (uint32_t) ALIGN(vals_off),
-	    .entry_count = (uint32_t) (last - first),
+	    .entry_count = (uint32_t) count,
 	};
-	sum += emiter(fd, &sfo_header, sizeof(sfo_header_t));
-
-	/* emit ENTRIES */
-	uint32_t val_off = 0;
-	uint16_t key_off = 0;
-	for (psv_entry_t* e = first; e < last; e++) {
-		sfo_entry_t entry = {
-		    .key_off   = key_off,
-		    .alignment = sizeof(e->val_i),
-		    .type      = (uint8_t) (e->val_s ? PSF_TYPE_STR : PSF_TYPE_U32),
-		    .val_size  = e->val_s ? e->val_i : sizeof(e->val_i),
-		    .val_limit = ALIGN(e->val_s ? e->val_i : sizeof(e->val_i)),
-		    .val_off   = val_off,
-		};
-		if (entry.val_size > entry.val_limit) {
-			fprintf(stderr, "Value for %s is over limit (%u>%u)", e->key, entry.val_size, entry.val_limit);
-		}
-		sum += emiter(fd, &entry, sizeof(entry));
-		val_off += entry.val_limit;
-		key_off += strlen(e->key) + 1;
+	sum += emitter(fd, &sfo_header, sizeof(sfo_header_t));
+	for (int i = 0; i < count; i++) {
+		sum += emitter(fd, entries + i, sizeof(*entries));
 	}
-
-	/* emit KEYS */
-	for (psv_entry_t* e = first; e < last; e++) {
-		sum += emiter(fd, e->key, strlen(e->key) + 1);
+	for (int i = 0; i < count; i++) {
+		sum += emitter(fd, keys[i], strlen(keys[i]) + 1);
 	}
-
-	/* emit PADDING */
-	sum += emiter(fd, "\0\0\0\0", ALIGN(vals_off) - vals_off);
-
-	/* emit VALS */
-	for (psv_entry_t* e = first; e < last; e++) {
-		if (e->val_s) {
-			sum += emiter(fd, e->val_s, e->val_i);
-			sum += emiter(fd, "\0\0\0\0", ALIGN(e->val_i) - e->val_i);
+	sum += emitter(fd, "\0\0\0\0", ALIGN(vals_off) - vals_off);
+	for (int i = 0; i < count; i++) {
+		sfo_entry_t* entry = &entries[i];
+		// fprintf(stderr, ">>%s:%i*%i/%i~%i@%i-%i=\"%s\"\n", keys[i], entry->type, entry->val_length, entry->val_limit, entry->alignment, entry->key_off, entry->val_off, vals[i]);
+		if (entries[i].type == PSF_TYPE_U32) {
+			struct little {uint32_t i;} val = {(uint32_t)strtoul(vals[i], NULL, 0)};
+			sum += emitter(fd, &val, sizeof(val));
 		} else {
-			struct little {uint32_t i;} val = {e->val_i};
-			sum += emiter(fd, &val, sizeof(val));
+			sum += emitter(fd, vals[i], entries[i].val_length);
+			for(int remain = ALIGN(entries[i].val_limit) - entries[i].val_length; remain > 0 ; remain--) {
+//				fprintf(stderr, "%i [%i] %li\n", i, ALIGN(entries[i].val_limit) - entries[i].val_length, sum);
+				sum += emitter(fd, "\0", 1);
+			}
+//			emitter(fd, "\0\0\0\0", ALIGN(entries[i].val_length) - entries[i].val_length)
+			//sum += emitter(fd, "\0\0\0\0", ALIGN(entries[i].val_length) - entries[i].val_length);
 		}
 	}
 	return sum;

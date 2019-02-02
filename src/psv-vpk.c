@@ -73,14 +73,14 @@ typedef struct {
 	char    buf[4096];
 } psv_vpksfo_t;
 
-psv_entry_t sfo_default[] = {
+/*psv_entry_t sfo_default[] = {
  {"STITLE", 6, "STITLE"},
  {"TITLE", 5, "TITLE"},
  {"TITLE_ID", 9, "ABCD99999"},
  {"APP_VER", 5, "01.00"},
  {"CATEGORY", 2, "gd"},
  {"PSP2_SYSTEM_VER", 0x00000000},
-};
+};*/
 
 
 static void read_fifo(int fd, size_t * len, void** buf) {
@@ -158,7 +158,7 @@ int main(int argc, char** argv) {
 		add_file_vpk(&vpk, *path, *inpath ? inpath : *path, &has_sfo);
 	}
 
-	if (!has_sfo) {
+	if (!has_sfo) {/*
 		char dir[1024], *t = (strrchr(getcwd(dir, sizeof(dir)-6),'/')?:"/ABCD12345")+1;
 		sfo_default[0].val_s = sfo_default[1].val_s = t;
 		sfo_default[0].val_i = sfo_default[1].val_i = (uint32_t) (strlen(t) + 1);
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
 		sfo.size = psv_sfo_emit(sfo_default, sfo_default + countof(sfo_default), inmem_sfo_emiter, &sfo);
 		EXPECT(sfo.size <= (signed)sizeof(sfo.buf), "Fake SFO size too big (>%zu)", sizeof(sfo.buf));
 		psv_sfo_emit(sfo_default, sfo_default + countof(sfo_default), inmem_sfo_emiter, &sfo);
-		vpkFileWrite(vpkFileOpen(&vpk, VPK_PATH_SFO, (uint32_t) sfo.size), sfo.buf, (size_t) sfo.size);
+		vpkFileWrite(vpkFileOpen(&vpk, VPK_PATH_SFO, (uint32_t) sfo.size), sfo.buf, (size_t) sfo.size);*/
 	}
 
 	return vpkClose(&vpk);

@@ -1,5 +1,7 @@
 - psv-sfo = KO (missing entry ?)
-- psv-fself = OK
+- psv-self = OK
 - psv-vpk = OK (injected SFO=bad)
 - psv-velf
+	- import/export
 	- remove deps : elf
+add docker usage example

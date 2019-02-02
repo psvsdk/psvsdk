@@ -16,7 +16,7 @@
 		fprintf(stderr, FMT "\n", ##__VA_ARGS__); \
 		return -1;                                \
 	}
-#define USAGE "Usage: %s [OPTIONS] <in.velf >out.fself\nOPTIONS:\n"
+#define USAGE "Usage: %s [OPTIONS] <in.velf >out.self\nOPTIONS:\n"
 #define VPK_FIFO_LEN 32
 
 typedef struct {
