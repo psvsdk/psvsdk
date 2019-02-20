@@ -146,7 +146,36 @@ int psv_sfo_dump(int in, int out) {
 	return 0;
 }
 */
+static ssize_t blank(void *fd, const void *buf, size_t len) { return len; }
+
+void psv_sfo_hydrate(int count, char**keys, char**vals, sfo_entry_t* entries) {
+	for (int i = 0 ; i < count; i++) {
+		sfo_entry_t* entry = entries + i;
+		if (entry->alignment == 0xFF) {
+			entry->alignment = 4;
+		}
+		if (entry->type == 0xFF) {
+			entry->type = (uint8_t) (vals[i][0] == '0' && (vals[i][1] == 'x') ? PSF_TYPE_U32 : PSF_TYPE_STR);
+		}
+		if (entry->val_length == 0xFFFFFFFF) {
+			entry->val_length = (uint32_t) (entry->type == PSF_TYPE_U32 ? sizeof(uint32_t) : strlen(vals[i]) + 1);
+		}
+		if (entry->val_limit == 0xFFFFFFFF) {
+			entry->val_limit = ALIGN(entry->val_length);
+		}
+		if (entry->key_off == 0xFFFF) {
+			entry->key_off = (uint16_t) (i ? entries[i - 1].key_off + strlen(keys[i - 1]) + 1 : 0);
+		}
+		if (entry->val_off == 0xFFFFFFFF) {
+			entry->val_off = i ? entries[i - 1].val_off + entries[i - 1].val_limit : 0;
+		}
+	}
+}
+
 ssize_t psv_sfo_emit(int count, char**keys, char**vals, sfo_entry_t* entries, sfo_emitter_t emitter, void* fd) {
+	if (!emitter) {
+		emitter = blank;
+	}
 	/* emit HEADER */
 	ssize_t sum      = 0;
 	size_t  keys_off = sizeof(sfo_header_t) + count * sizeof(sfo_entry_t);
@@ -161,7 +190,7 @@ ssize_t psv_sfo_emit(int count, char**keys, char**vals, sfo_entry_t* entries, sf
 	    .vals_off    = (uint32_t) ALIGN(vals_off),
 	    .entry_count = (uint32_t) count,
 	};
-	sum += emitter(fd, &sfo_header, sizeof(sfo_header_t));
+	sum += emitter(fd, &sfo_header, sizeof(sfo_header));
 	for (int i = 0; i < count; i++) {
 		sum += emitter(fd, entries + i, sizeof(*entries));
 	}

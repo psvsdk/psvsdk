@@ -26,6 +26,8 @@ Inner ELF file can be compressed (gzip), encrypted (AES CTR), signed (ECDSA + HM
 #define SELF_H
 #include <inttypes.h>
 
+#define SELF_HEADER_MAGIC 0x00454353
+
 #define SELF_HEADER_TYPE_SELF 1
 #define SELF_HEADER_TYPE_RVK 2
 #define SELF_HEADER_TYPE_PKG 3

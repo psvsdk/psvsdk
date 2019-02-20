@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 	// SHA256_Final(SHA256_Update(SHA256_Init(&(SHA256_CTX){}), elf_data, elf_size),NULL);//htole32?
 
 	SELF_header self = {
-	    .magic           = 0x454353, // "SCE\0"
+	    .magic           = SELF_HEADER_MAGIC, // "SCE\0"
 	    .version         = *options[HDRV].flag,
 	    .sdk_type        = *options[SDKT].flag,
 	    .header_type     = *options[TYPE].flag,

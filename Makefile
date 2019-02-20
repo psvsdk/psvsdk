@@ -44,23 +44,25 @@ docs/%.1: docs/%.1.md
 	echo ".TH $(^:src/%.c=% 1) 1 PSVSDK" > $@; sed 's/^# /.SH /; s/^## /.SS /' < $^ >> $@
 
 # Tests
-test: compile
+test: compile test_help test_sfo test_vpk
+test_help:
 	for b in bin/*; do echo testing $$b ... && ./$$b||:; done
 test_sfo:
-	bin/psv-sfo                     | cmp tests/vitasdk/base.sfo
-	bin/psv-sfo TITLE=SOMELONGTITLE | cmp tests/vitasdk/title.sfo
-	bin/psv-sfo NEWVAL=+123         | cmp tests/vitasdk/add_digit.sfo
-	bin/psv-sfo NEWVAL=FooBar       | cmp tests/vitasdk/add_string.sfo
-	bin/psv-sfo ATTRIBUTE=+123      | cmp tests/vitasdk/replace_digit.sfo
-	bin/psv-sfo BOOT_FILE=foo.bar   | cmp tests/vitasdk/replace_string.sfo
+	bin/psv-sfo < tests/vitasdk/base.sfo | xargs bin/psv-sfo | cmp - tests/vitasdk/base.sfo
+test_vpk:
+	! bin/psv-vpk < bin/psv-vpk > /dev/null
+	bin/psv-vpk < tests/vitasdk/main_deps2.self > /tmp/stdin.vpk
+	bin/psv-vpk tests/vitasdk/main_deps2.self:eboot.bin > /tmp/arg.vpk
+	cmp /tmp/stdin.vpk /tmp/arg.vpk
+	unzip -od/tmp /tmp/stdin.vpk &>/dev/null
+	bin/psv-sfo < /tmp/sce_sys/param.sfo
+
 test_velf:
 	bin/psv-velf < tests/vitasdk/main_deps.elf     | cmp tests/vitasdk/main_deps.velf
 	bin/psv-velf < tests/vitasdk/main_no_deps.elf  | cmp tests/vitasdk/main_no_deps.velf
 test_self:
 	bin/psv-self < tests/vitasdk/main_deps.velf    | cmp tests/vitasdk/main_deps.self
 	bin/psv-self < tests/vitasdk/main_no_deps.velf | cmp tests/vitasdk/main_no_deps.self
-test_vpk:
-	bin/psv-vpk  | cmp tests/vitasdk/main_deps.vpk
 test_module:
 	psv-cc <<< "TODO:{U,K} App : vector maths, load {U,K} module, call {U,K} exports"
 

@@ -104,9 +104,10 @@ vpk_entry_t* vpkFileOpen(vpk_t* vpk, const char* name, uint32_t size) {
 	vpk_entry_write(vpk, ent, ent->type=VPK_LOCAL_HEADER);
 	return ent;
 }
-vpk_entry_t* vpkFileWrite(vpk_entry_t* ent, const void* data, size_t bytes) {
-	ent->vpk->total += write(ent->vpk->fd, data, bytes);
-	return ent;
+ssize_t vpkFileWrite(vpk_entry_t* ent, const void* data, ssize_t bytes) {
+	ssize_t wrote = write(ent->vpk->fd, data, bytes);
+	ent->vpk->total += wrote;
+	return wrote;
 }
 
 vpk_entry_t* vpkDir(vpk_t* vpk, const char* name) {
