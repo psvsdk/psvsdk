@@ -15,6 +15,10 @@
 	psv-vpk sce_sys assets:data a.self:eboot.bin
 	psv-vpk <(psv-sfo TITLE="Hello World" ...):sce_sys/param.sfo < a.self
 
+# NOTES
+  Archived files will have they CRC field unset (because unchecked during unpacking)
+  To extract VPK simply unzip it using: `unzip -od. *.vpk` (ignore bad CRC warning)
+
 # BENCHMARK
 
 dd if=/dev/random of=big.img bs=4k iflag=fullblock,count_bytes count=1G
@@ -56,10 +60,10 @@ sys	0m1.392s
 #define VPK_PATH_SFO "sce_sys/param.sfo"
 #define VPK_PATH_BIN "eboot.bin"
 #ifndef VPK_SFO_KEYS
-#define VPK_SFO_KEYS {"STITLE", "TITLE", "TITLE_ID", "APP_VER", "CATEGORY", "PSP2_SYSTEM_VER"}
+#define VPK_SFO_KEYS {"APP_VER", "ATTRIBUTE", "CATEGORY", /*"PSP2_DISP_VER",*/ "PSP2_SYSTEM_VER", "STITLE", "TITLE", "TITLE_ID"}
 #endif
 #ifndef VPK_SFO_VALS
-#define VPK_SFO_VALS {title,    title,   id,         "01.00",   "gd",       "0x0"}
+#define VPK_SFO_VALS {  "00.00",       "0x0",       "gd",      /*  "00.000", */            "0x0",    title,   title,         id}
 #endif
 
 static int add_file_vpk(vpk_t* vpk, const char* src, const char* dst, bool* found_sfo, bool* found_bin) {
@@ -95,7 +99,7 @@ static int add_file_vpk(vpk_t* vpk, const char* src, const char* dst, bool* foun
 	} else if (S_ISFIFO(s.st_mode)) {
 		int   fd = open(src, O_RDONLY);
 		ssize_t len = read(fd, buf, sizeof(buf));
-		EXPECT(len < sizeof(buf), "too big piping");
+		EXPECT(len < sizeof(buf), "too large piping");
 		vpkFileWrite(vpkFileOpen(vpk, dst, (uint32_t) len), buf, len);
 		close(fd);
 	} else { // symlink etc.
@@ -141,7 +145,7 @@ int main(int argc, char** argv) {
 		memset(entries, -1, sizeof(entries));
 		psv_sfo_hydrate(countof(keys), keys, vals, entries);
 		ssize_t sfo_size = psv_sfo_emit(countof(keys), keys, vals, entries, NULL, NULL);
-		DEBUG("Generated SFO: %s [%s] => (%zi Bytes)", title, id, sfo_size);
+		DEBUG("Generated (S)TITLE:%s [%s]", title, id);
 		vpk_entry_t *sfo_file = vpkFileOpen(&vpk, VPK_PATH_SFO, (uint32_t) sfo_size);
 		psv_sfo_emit(countof(keys), keys, vals, entries, (sfo_emitter_t) vpkFileWrite, sfo_file);
 	}

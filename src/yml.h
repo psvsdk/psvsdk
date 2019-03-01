@@ -27,9 +27,8 @@ modules:
 #define YML_MAX_EXPNAME 128
 #define YML_MAX_NID 16
 
-static char* yml_readline(int fd) {
-	static char line[YML_MAX_LINE];
-	for (int len = 0; read(fd, line + len, sizeof(*line)) > 0 && len < YML_MAX_LINE; len++) {
+static char* yml_readline(int fd,char* line, size_t limit) {
+	for (int len = 0; read(fd, line + len, sizeof(*line)) > 0 && len < limit; len++) {
 		if (line[len] == '\n') {
 			line[len] = '\0';
 			return line;
@@ -102,7 +101,9 @@ void yml_emitter(int fd, yml_db_line line) {
 void yml_walker(int fd, yml_walker_cb cb, void* ctx) {
 	char     mod_name[YML_MAX_MODNAME], lib_name[YML_MAX_LIBNAME], exp_name[YML_MAX_EXPNAME];
 	uint32_t mod_nid, lib_nid, lib_kernel, exp_nid, yml_version, yml_firmware;
-	for (char *line, *val; (line = yml_readline(fd));) {
+	static char lineBuffer[YML_MAX_LINE];
+
+	for (char *line, *val; (line = yml_readline(fd,lineBuffer,sizeof(lineBuffer)));) {
 		strtok_r(line, ":", &val);
 		int i = yml_indent(line);
 		line += i;
@@ -118,7 +119,7 @@ void yml_walker(int fd, yml_walker_cb cb, void* ctx) {
 		} else if (i == 6) {
 			strncpy(lib_name, line, sizeof(lib_name));
 		} else if (i == 8 && !strcmp(line, "kernel")) {
-			lib_kernel = !!strstr(val, "true");
+			lib_kernel = strstr(val, "true") != NULL;
 		} else if (i == 8 && !strcmp(line, "nid")) {
 			lib_nid = strtoul(val, NULL, 0);
 			cb(ctx,

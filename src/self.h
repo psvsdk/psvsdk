@@ -123,7 +123,7 @@ typedef struct {// 0x80 bytes of data (not 0x100?)
 typedef struct {
 	SELF_ctrl common;
 	uint32_t  is_used; // args ?
-	uint8_t   argp[0x9C];// was 0xFC
+	uint8_t   argp[0xFC];// wiki say 0x9C => full of shit
 } __packed SELF_boot;
 
 typedef struct {

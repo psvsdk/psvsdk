@@ -35,9 +35,11 @@
 	if (!(EXPR)) {                                    \
 		return fprintf(stderr, FMT "\n", ##__VA_ARGS__), -1; \
 	}
+#define countof(array) (sizeof(array) / sizeof(*(array)))
 #ifndef USAGE
-#define USAGE "See psv-self --help\n"
+#define USAGE "See man psv-self\n"
 #endif
+#define MAX_PHDR 8 // 2 IRL
 
 typedef struct {
 	uint32_t dummy;
@@ -57,10 +59,12 @@ struct option options[] = {
     {"type", 1, (int*)&(opt_ex){1, "1:self 2:? 3:pkg"}},
     {}};
 
-static void read_fifo(int fd, size_t* len, uint8_t** buf) {
-	for (ssize_t ret = PIPE_BUF; ret == PIPE_BUF; *len += (ret = read(fd, *buf + *len, PIPE_BUF))) {
-		*buf = realloc(*buf, *len + PIPE_BUF);
+ssize_t readn(int fd, void *buf, size_t nbytes) {
+	ssize_t remain = nbytes, ret;
+	while(remain > 0 && (ret = read(fd, buf + nbytes - remain, (size_t) remain)) > 0) {
+		remain -= ret;
 	}
+	return ret < 0 ? ret : nbytes;
 }
 
 int main(int argc, char** argv) {
@@ -83,11 +87,13 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	uint8_t* elf_data = NULL;
-	size_t   elf_size = 0;
-	read_fifo(STDIN_FILENO, &elf_size, &elf_data);
-	Elf32_Ehdr* ehdr = (Elf32_Ehdr*)elf_data;
-	EXPECT((ehdr->e_type == ET_SCE_EXEC) || (ehdr->e_type == ET_SCE_RELEXEC), "not a SCE(REL)EXEC .velf file")
+	Elf32_Ehdr ehdr;
+	ssize_t consumed = readn(STDIN_FILENO, &ehdr, sizeof(ehdr));
+	EXPECT((ehdr.e_type == ET_SCE_EXEC) || (ehdr.e_type == ET_SCE_RELEXEC), "not a SCE(REL)EXEC .velf file");
+
+	Elf32_Phdr phdr[MAX_PHDR];
+	EXPECT(ehdr.e_phoff == ehdr.e_ehsize && ehdr.e_phentsize == sizeof(*phdr) && ehdr.e_phnum < countof(phdr), "bad phdr");
+	consumed += readn(STDIN_FILENO, &phdr, ehdr.e_phnum * sizeof(*phdr));
 
 	// bool is_rel = (ehdr->e_type == ET_SCE_RELEXEC);
 	// write module nid
@@ -102,18 +108,18 @@ int main(int argc, char** argv) {
 	    .sdk_type        = (uint16_t) *options[SDKT].flag,
 	    .header_type     = (uint16_t) *options[TYPE].flag,
 	    .metadata_offset = 0x600,  // ???
-	    .header_len      = 0x1000, // wiki say 0x100 ? TODO: Be exact
-	    .elf_filesize    = elf_size,
-	    .self_offset     = 4, // TODO ?
+	    .header_len      = 0x1000, // wiki say 0x100 ? TODO: Be more precise
+	    .elf_filesize    = ehdr.e_shoff + (ehdr.e_shnum * ehdr.e_shentsize),
 	    .ctrl_size       = sizeof(SELF_npdrm) + sizeof(SELF_boot) + sizeof(SELF_secret),
 	};
+	self.self_offset       = 4, // TODO ?
 	self.app_offset        = 0 + sizeof(SELF_header);
 	self.elf_offset        = self.app_offset + sizeof(SELF_app);
 	self.phdr_offset       = ((self.elf_offset + sizeof(Elf32_Ehdr)) + 0xf) & ~0xf; // align
-	self.section_offset    = self.phdr_offset + sizeof(Elf32_Phdr) * ehdr->e_phnum;
-	self.sceversion_offset = self.section_offset + sizeof(SELF_segment) * ehdr->e_phnum;
+	self.section_offset    = self.phdr_offset + sizeof(Elf32_Phdr) * ehdr.e_phnum;
+	self.sceversion_offset = self.section_offset + sizeof(SELF_segment) * ehdr.e_phnum;
 	self.ctrl_offset       = self.sceversion_offset + sizeof(SELF_version);
-	self.self_filesize     = /*self.ctrl_offset + self.ctrl_size*/ 0x1000 + self.elf_filesize;
+	self.self_filesize     = /*self.ctrl_offset + self.ctrl_size*/ self.header_len + self.elf_filesize;
 	write(STDOUT_FILENO, &self, sizeof(self));
 
 	SELF_app self_app = {
@@ -125,38 +131,23 @@ int main(int argc, char** argv) {
 	};
 	write(STDOUT_FILENO, &self_app, sizeof(self_app));
 
-	Elf32_Ehdr elf32_ehdr = {
-	 .e_ident     = "\177ELF\1\1\1\0",
-	 .e_type      = ehdr->e_type,
-	 .e_machine   = ehdr->e_machine,
-	 .e_version   = ehdr->e_version,
-	 .e_entry     = ehdr->e_entry,
-	 .e_phoff     = ehdr->e_phoff,
-	 .e_shoff     = 0,
-	 .e_flags     = 0x05000000U,
-	 .e_ehsize    = ehdr->e_ehsize,
-	 .e_phentsize = ehdr->e_phentsize,
-	 .e_phnum     = ehdr->e_phnum,
-	 .e_shentsize = 0,
-	 .e_shnum     = 0,
-	 .e_shstrndx  = 0,
-	};
-	write(STDOUT_FILENO, &elf32_ehdr, sizeof(elf32_ehdr));
+	Elf32_Ehdr sehdr = ehdr;
+	sehdr.e_flags = 0x05000000U;
+	sehdr.e_shoff = sehdr.e_shentsize = sehdr.e_shnum = sehdr.e_shstrndx = 0;
+	write(STDOUT_FILENO, &sehdr, sizeof(sehdr));
 
 	write(STDOUT_FILENO, &(char[16]){}, self.phdr_offset - (self.elf_offset + sizeof(Elf32_Ehdr)));
 
-	for (uint16_t i = 0; i < ehdr->e_phnum; ++i) {
-		Elf32_Phdr* phdr = (Elf32_Phdr*)(elf_data + ehdr->e_phoff + ehdr->e_phentsize * i);
-		if (phdr->p_align > 0x1000)
-			phdr->p_align = 0x1000;
-		write(STDOUT_FILENO, phdr, sizeof(*phdr));
+	for (uint16_t i = 0; i < ehdr.e_phnum; ++i) {
+		if (phdr[i].p_align > 0x1000)
+			phdr[i].p_align = 0x1000;
+		write(STDOUT_FILENO, phdr + i, sizeof(*phdr));
 	}
 
-	for (uint16_t i = 0; i < ehdr->e_phnum; ++i) {
-		Elf32_Phdr* phdr = (Elf32_Phdr*)(elf_data + ehdr->e_phoff + ehdr->e_phentsize * i);
+	for (uint16_t i = 0; i < ehdr.e_phnum; ++i) {
 		SELF_segment self_segment = {
-		 .offset      = self.header_len + phdr->p_offset,
-		 .length      = phdr->p_filesz,
+		 .offset      = self.header_len + phdr[i].p_offset,
+		 .length      = phdr[i].p_filesz,
 		 .compression = SELF_SEGMENT_UNCOMPRESSED,
 		 .encryption  = SELF_SEGMENT_PLAIN,
 		};
@@ -171,6 +162,12 @@ int main(int argc, char** argv) {
 		write(STDOUT_FILENO, "\0", 1);
 	}
 
-	write(STDOUT_FILENO, elf_data, elf_size);
+	char buf;//TODO: bigger buffer => less iteration
+	write(STDOUT_FILENO, &ehdr, sizeof(ehdr));
+	write(STDOUT_FILENO, &phdr, ehdr.e_phnum * sizeof(*phdr));
+	for (size_t remain = self.elf_filesize - consumed; remain > 0; remain--) {
+		readn(STDIN_FILENO, &buf, sizeof(buf));
+		write(STDOUT_FILENO, &buf, sizeof(buf));
+	}
 	return 0;
 }
