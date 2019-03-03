@@ -15,25 +15,22 @@ ELF_TAG=0.8.13
 ELF_TMP=libelf
 
 # list non-file based targets (meaven lifecycle naming):
-.PHONY: compile lib validate test package install coverage verify clean
+.PHONY: compile lib docs validate test package install coverage verify clean
 
 compile: $(PSV_BIN)
 
 deps/lib/libelf.a:
-	$(shell mkdir -p $(dir $@) $(ELF_TMP) && wget http://www.mr511.de/software/libelf-$(ELF_TAG).tar.gz -qO- | tar xz --strip-components=1 -C $(ELF_TMP))
+	$(shell mkdir -p $(dir $@) $(ELF_TMP) && wget https://github.com/Distrotech/libelf/archive/master.tar.gz -qO- | tar xz --strip-components=1 -C $(ELF_TMP))
 	cd $(ELF_TMP) && ./configure --silent && touch po/de && make V=0 --silent all instroot=$(PWD)/deps prefix= install
 	rm -rf $(ELF_TMP)
 
 bin/psv-%: src/psv-%.c deps/lib/libelf.a
-	$(CC) -std=gnu11 -I deps/include deps/lib/libelf.a -s  $(CFLAGS) -o $@ $^
+	cat docs/$(notdir $@).1.md 2>&1 | xxd -i -c 99999 | xargs -I% $(CC) -DUSAGE='(char[]){0xa,%,0}' -std=gnu11 -I deps/include deps/lib/libelf.a -s $(CFLAGS) -o $@ $^
 
 clean:
 	$(RM) $(PSV_BIN) *.gc* coverage *.tar.gz lib
 
-validate: format $(MAN1DST) $(MAN5DST) $(DOC1DST) $(DOC5DST)
-	@git diff docs src && exit || echo "\noutdated docs/src!\nplease review with 'git diff' and commit them before re-make $@\n" && exit 1
-format: $(FMT_SRC)
-	$(FMT_BIN) -i $^
+docs: $(MAN1DST) $(MAN5DST) $(DOC1DST) $(DOC5DST)
 docs/%.5.md: src/%.h
 	awk '/\*\// {p=0};{if(p) print $0};/\/\*\*/ {p=1};' $^ > $@
 docs/%.1.md: src/%.c
@@ -43,26 +40,35 @@ docs/%.5: docs/%.5.md
 docs/%.1: docs/%.1.md
 	echo ".TH $(^:src/%.c=% 1) 1 PSVSDK" > $@; sed 's/^# /.SH /; s/^## /.SS /' < $^ >> $@
 
-# Tests
-test: compile test_help test_sfo test_vpk
+validate: format docs
+	@git diff docs src && exit || echo "\noutdated docs/src!\nplease review with 'git diff' and commit them before re-make $@\n" && exit 1
+format: $(FMT_SRC)
+	$(FMT_BIN) -i $^
+
+test: compile test_help test_sfo test_self test_vpk test_db test_export
 test_help:
 	for b in bin/*; do echo testing $$b ... && ./$$b||:; done
 test_sfo:
-	bin/psv-sfo < tests/vitasdk/base.sfo | xargs bin/psv-sfo | cmp - tests/vitasdk/base.sfo
+	bin/psv-sfo < tests/base.sfo | xargs bin/psv-sfo | cmp - tests/base.sfo
+	bin/psv-sfo __VER:2*8/16~8@2-1="_0x000" | bin/psv-sfo
+	! bin/psv-sfo TEST=0x42
+	! bin/psv-sfo > /dev/null
 test_vpk:
 	! bin/psv-vpk < bin/psv-vpk > /dev/null
-	bin/psv-vpk < tests/vitasdk/main_deps2.self > /tmp/stdin.vpk
-	bin/psv-vpk tests/vitasdk/main_deps2.self:eboot.bin > /tmp/arg.vpk
+	bin/psv-vpk bin:assets < tests/main.self > /tmp/stdin.vpk
+	bin/psv-vpk bin:assets tests/main.self:eboot.bin > /tmp/arg.vpk
 	cmp /tmp/stdin.vpk /tmp/arg.vpk
-	unzip -od/tmp /tmp/stdin.vpk &>/dev/null
+	! unzip -od/tmp /tmp/stdin.vpk
 	bin/psv-sfo < /tmp/sce_sys/param.sfo
-
-test_velf:
-	bin/psv-velf < tests/vitasdk/main_deps.elf     | cmp tests/vitasdk/main_deps.velf
-	bin/psv-velf < tests/vitasdk/main_no_deps.elf  | cmp tests/vitasdk/main_no_deps.velf
 test_self:
-	bin/psv-self < tests/vitasdk/main_deps.velf    | cmp tests/vitasdk/main_deps.self
-	bin/psv-self < tests/vitasdk/main_no_deps.velf | cmp tests/vitasdk/main_no_deps.self
+	bin/psv-self --type=1 --selftype=8 < tests/main.velf    | cmp tests/main.self
+	! bin/psv-self --help
+test_db:
+	bin/psv-db < tests/360.yml
+test_export:
+	bin/psv-export
+test_velf:
+	bin/psv-velf < tests/main.elf     | cmp tests/main.velf
 test_module:
 	psv-cc <<< "TODO:{U,K} App : vector maths, load {U,K} module, call {U,K} exports"
 
@@ -83,4 +89,3 @@ install_usr: compile lib
 coverage:
 	make clean CFLAGS="-O0 --coverage" test
 	[ -z "${CI}" ] && lcov --capture --directory . --output-file $@ || curl -sL codecov.io/bash|bash
-	

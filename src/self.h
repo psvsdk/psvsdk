@@ -9,14 +9,15 @@ Inner ELF file can be compressed (gzip), encrypted (AES CTR), signed (ECDSA + HM
 # FORMAT
 
   SELF_HEADER (magic,version,type,lengths..., offsets...)
-  |-> SELF_APP
-  |-> ELF32_EHDR[N]
-  |-> ELF32_PHDR[N]
-  |-> SELF_VERSION
-  |-> SELF_CTRL_5
-  |-> SELF_CTRL_6
-  |-> SELF_CTRL_7
-  |-> ELF
+  ├ SELF_APP
+  ├ ELF32_EHDR[N]
+  ├ ELF32_PHDR[N]
+  ├ SELF_VERSION
+  ├ SELF_CTRL_5
+  ├ SELF_CTRL_6
+  ├ SELF_CTRL_7
+  └ ELF
+
 
 # SEE ALSO
   - <self.h>
@@ -56,7 +57,7 @@ Inner ELF file can be compressed (gzip), encrypted (AES CTR), signed (ECDSA + HM
 #define SELF_APPINFO_AUTH_SAFE 2
 #define SELF_APPINFO_AUTH_SECRET 3
 
-#define __packed  __attribute__((packed))
+#define __packed __attribute__((packed))
 
 typedef struct {
 	uint32_t magic;             /* 53434500 = SCE\0 */
@@ -101,37 +102,38 @@ typedef struct {
 	uint64_t next;
 } __packed SELF_ctrl;
 
-typedef struct { // 0x40 bytes of data
-	uint8_t  constant[0x14]; // same for every PSVita/PS3 SELF, hardcoded in make_fself.exe: 627CB1808AB938E32C8C091708726A579E2586E4
+typedef struct {                   // 0x40 bytes of data
+	uint8_t constant[0x14];    // same for every PSVita/PS3 SELF, hardcoded in make_fself.exe:
+	                           // 627CB1808AB938E32C8C091708726A579E2586E4
 	uint8_t  elf_digest[0x20]; // on PSVita: SHA-256 of source ELF file, on PS3: SHA-1
 	uint8_t  padding[8];
 	uint32_t min_required_fw; // ex: 0x363 for 3.63
 } __packed SELF_digest;
 
-typedef struct {// 0x80 bytes of data (not 0x100?)
+typedef struct { // 0x80 bytes of data (not 0x100?)
 	SELF_ctrl common;
-	uint32_t magic;               // 7F 44 52 4D (".DRM")
-	uint32_t finalized_flag;      // ex: 80 00 00 01
-	uint32_t drm_type;            // license_type ex: 2 local, 0xD free with license
-	uint32_t padding;
-	uint8_t content_id[0x30];
-	uint8_t digest[0x10];         // ?sha-1 hash of debug self/sprx created using make_fself_npdrm?
-	uint8_t padding_78[0x78];
-	uint8_t hash_signature[0x38]; // unknown hash/signature
+	uint32_t  magic;          // 7F 44 52 4D (".DRM")
+	uint32_t  finalized_flag; // ex: 80 00 00 01
+	uint32_t  drm_type;       // license_type ex: 2 local, 0xD free with license
+	uint32_t  padding;
+	uint8_t   content_id[0x30];
+	uint8_t   digest[0x10]; // ?sha-1 hash of debug self/sprx created using make_fself_npdrm?
+	uint8_t   padding_78[0x78];
+	uint8_t   hash_signature[0x38]; // unknown hash/signature
 } __packed SELF_npdrm;
 
 typedef struct {
 	SELF_ctrl common;
-	uint32_t  is_used; // args ?
-	uint8_t   argp[0xFC];// wiki say 0x9C => full of shit
+	uint32_t  is_used;    // args ?
+	uint8_t   argp[0xFC]; // wiki say 0x9C => full of shit
 } __packed SELF_boot;
 
 typedef struct {
 	SELF_ctrl common;
-	uint8_t  secret_0[0x10]; // ex: 0x7E7FD126A7B9614940607EE1BF9DDF5E or full of zeroes
-	uint8_t  secret_1[0x10]; // ex: full of zeroes
-	uint8_t  secret_2[0x10]; // ex: full of zeroes
-	uint8_t  secret_3[0x10]; // ex: full of zeroes
+	uint8_t   secret_0[0x10]; // ex: 0x7E7FD126A7B9614940607EE1BF9DDF5E or full of zeroes
+	uint8_t   secret_1[0x10]; // ex: full of zeroes
+	uint8_t   secret_2[0x10]; // ex: full of zeroes
+	uint8_t   secret_3[0x10]; // ex: full of zeroes
 } __packed SELF_secret;
 
 typedef struct {

@@ -23,7 +23,7 @@ that will be be displayed on the livearea screen.
   ...
   HEADER #N             <--+
   FILE #N                  |
-			   |
+                           |
   DESCRIPTOR HEADER #0     |
    - offset                |
   ...                      |

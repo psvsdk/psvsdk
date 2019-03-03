@@ -42,8 +42,8 @@ that will be be displayed on the livearea screen.
 
 #ifndef VPK_H
 #define VPK_H
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #define VPK_LOCAL_HEADER 0x04034b50
@@ -70,8 +70,8 @@ typedef struct little {
 
 typedef struct little {
 	uint32_t type;
-	uint16_t a,b,c,d;
-	uint32_t size,start;
+	uint16_t a, b, c, d;
+	uint32_t size, start;
 	uint16_t e;
 } vpk_footer_t;
 
@@ -83,8 +83,9 @@ typedef struct _vpk_s {
 } vpk_t;
 
 static void vpk_entry_write(vpk_t* vpk, vpk_entry_t* ent, uint32_t type) {
-	vpk->total += write(vpk->fd, &ent->type   , (type == VPK_DIR_HEADER ? offsetof(vpk_entry_t, version):offsetof(vpk_entry_t, made)));
-	vpk->total += write(vpk->fd, &ent->version, (type == VPK_DIR_HEADER ? offsetof(vpk_entry_t,    name):offsetof(vpk_entry_t,    z2)) - offsetof(vpk_entry_t, version));
+	vpk->total += write(vpk->fd, &ent->type, (type == VPK_DIR_HEADER ? offsetof(vpk_entry_t, version) : offsetof(vpk_entry_t, made)));
+	vpk->total +=
+	    write(vpk->fd, &ent->version, (type == VPK_DIR_HEADER ? offsetof(vpk_entry_t, name) : offsetof(vpk_entry_t, z2)) - offsetof(vpk_entry_t, version));
 	vpk->total += write(vpk->fd, ent->name, ent->namelen);
 }
 
@@ -92,16 +93,20 @@ static vpk_entry_t* vpk_entry_add(vpk_t* vpk, const char* name, uint32_t attrs) 
 	if (vpk->num_files >= (sizeof(vpk->files) / sizeof(*vpk->files)))
 		return NULL;
 	vpk_entry_t* ent = vpk->files + vpk->num_files++;
-	* ent = (vpk_entry_t){.made = VPK_MADE_BY, .vpk = vpk, .offset = vpk->total, .attrs = attrs, .namelen = (uint16_t) strlen(name),
-	 .version = (uint16_t)(ent->attrs == VPK_EXTERNAL_DIR ? VPK_DIR_VERSION : VPK_FILE_VERSION)};
+	*ent             = (vpk_entry_t){.made    = VPK_MADE_BY,
+                             .vpk     = vpk,
+                             .offset  = vpk->total,
+                             .attrs   = attrs,
+                             .namelen = (uint16_t)strlen(name),
+                             .version = (uint16_t)(ent->attrs == VPK_EXTERNAL_DIR ? VPK_DIR_VERSION : VPK_FILE_VERSION)};
 	strncpy(ent->name, name, sizeof(ent->name) - 1);
 	return ent;
 }
 
 vpk_entry_t* vpkFileOpen(vpk_t* vpk, const char* name, uint32_t size) {
-	vpk_entry_t* ent     = vpk_entry_add(vpk, name, VPK_EXTERNAL_FILE);
+	vpk_entry_t* ent = vpk_entry_add(vpk, name, VPK_EXTERNAL_FILE);
 	ent->size_ = ent->size = size;
-	vpk_entry_write(vpk, ent, ent->type=VPK_LOCAL_HEADER);
+	vpk_entry_write(vpk, ent, ent->type = VPK_LOCAL_HEADER);
 	return ent;
 }
 ssize_t vpkFileWrite(vpk_entry_t* ent, const void* data, ssize_t bytes) {
@@ -112,14 +117,14 @@ ssize_t vpkFileWrite(vpk_entry_t* ent, const void* data, ssize_t bytes) {
 
 vpk_entry_t* vpkDir(vpk_t* vpk, const char* name) {
 	vpk_entry_t* ent = vpk_entry_add(vpk, name, VPK_EXTERNAL_DIR);
-	vpk_entry_write(vpk, ent, ent->type=VPK_LOCAL_HEADER);
+	vpk_entry_write(vpk, ent, ent->type = VPK_LOCAL_HEADER);
 	return ent;
 }
 int vpkClose(vpk_t* vpk) {
 	uint32_t start = vpk->total;
 	for (vpk_entry_t* ent = vpk->files; ent < vpk->files + vpk->num_files; ent++)
-		vpk_entry_write(vpk, ent, ent->type=VPK_DIR_HEADER);
-	write(vpk->fd,&(vpk_footer_t){VPK_END_RECORD, 0, 0, vpk->num_files, vpk->num_files, vpk->total - start, start, 0}, sizeof(vpk_footer_t));
+		vpk_entry_write(vpk, ent, ent->type = VPK_DIR_HEADER);
+	write(vpk->fd, &(vpk_footer_t){VPK_END_RECORD, 0, 0, vpk->num_files, vpk->num_files, vpk->total - start, start, 0}, sizeof(vpk_footer_t));
 	return close(vpk->fd);
 }
 

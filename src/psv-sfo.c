@@ -32,14 +32,15 @@
 	psv-sfo < base.sfo | grep -v BOOT_FILE | xargs psv-sfo > stripped.sfo
 
 # MANDATORY ENTRIES
-	STITLE="Short title"
-	TITLE_ID=ABCD99999
 	APP_VER=01.00
+	ATTRIBUTE=0x00000000
 	CATEGORY=gd
 	PSP2_SYSTEM_VER 0x00000000
+	TITLE="Long title"
+	STITLE="Short title"
+	TITLE_ID=ABCD99999
 
 # OPTIONAL ENTRIES
-	ATTRIBUTE=0x00000000
 	ATTRIBUTE2=0x00000000
 	ATTRIBUTE_MINOR=0x00000010
 	BOOT_FILE=""
@@ -72,78 +73,80 @@
 #include <unistd.h>
 
 #include "sfo.h"
-#define DEBUG(...) if(getenv("DEBUG"))fprintf(stderr, __VA_ARGS__);
+
 #define EXPECT(EXPR, FMT, ...) \
 	if (!(EXPR))           \
 		return fprintf(stderr, FMT "\n", ##__VA_ARGS__), -1;
-#define countof(array) (sizeof(array) / sizeof(*(array)))
+#define DEBUG(FMT, ...) getenv("DEBUG") && fprintf(stderr, FMT "\n", __VA_ARGS__);
 #ifndef USAGE
 #define USAGE "See man psv-sfo\n"
 #endif
+#define countof(array) (sizeof(array) / sizeof(*(array)))
+
 #define MAX_SFO_ENTRY 32
 #define MAX_SFO_KEY 32
 #define MAX_SFO_VAL 128
 
 /* read exactly N bytes (unlike read, that could return less)*/
-ssize_t readn(int fd, void *buf, size_t nbytes) {
+static ssize_t readn(int fd, void* buf, size_t nbytes) {
 	ssize_t remain = nbytes, ret;
-	while(remain > 0 && (ret = read(fd, buf + nbytes - remain, (size_t) remain)) > 0) {
+	while (remain > 0 && (ret = read(fd, buf + nbytes - remain, (size_t)remain)) > 0) {
 		remain -= ret;
 	}
 	return ret < 0 ? ret : nbytes;
 }
+
+static ssize_t writep(void* fd, const void* buf, size_t size) { return write(*(int*)fd, buf, size); }
+
 ssize_t psv_sfo_to_args(int in, int out) {
 	sfo_header_t hdr;
-	ssize_t pos = readn(in, &hdr, sizeof(hdr));
+	ssize_t      pos = readn(in, &hdr, sizeof(hdr));
 	EXPECT(hdr.magic == PSF_MAGIC && hdr.version == PSF_VERSION, "not a SFO 1.1");
 
 	sfo_entry_t entries[MAX_SFO_ENTRY];
 	pos += readn(in, &entries, sizeof(sfo_entry_t) * hdr.entry_count);
 
-	for(uint8_t c; pos < MIN(hdr.keys_off, hdr.vals_off);pos += readn(in, &c, sizeof(c)));
+	for (uint8_t c; pos < MIN(hdr.keys_off, hdr.vals_off); pos += readn(in, &c, sizeof(c)))
+		;
 	bool keys_first = hdr.keys_off < hdr.vals_off;
 
-	char keys_section[MAX_SFO_ENTRY * MAX_SFO_KEY];// 64 keys of 32 bytes
-	char vals_section[MAX_SFO_ENTRY * MAX_SFO_VAL];// 64 values of 128 bytes
+	char keys_section[MAX_SFO_ENTRY * MAX_SFO_KEY]; // 64 keys of 32 bytes
+	char vals_section[MAX_SFO_ENTRY * MAX_SFO_VAL]; // 64 values of 128 bytes
 
-	if (keys_first) {
-		EXPECT(hdr.vals_off - hdr.keys_off <= sizeof(keys_section), "too much keys");
-		pos += readn(in, &keys_section, hdr.vals_off - hdr.keys_off);
-		pos += readn(in, &vals_section, sizeof(vals_section));
-	} else {
-		EXPECT(hdr.keys_off - hdr.vals_off > sizeof(vals_section), "too much vals (%i %i < %zu)", hdr.keys_off, hdr.vals_off, sizeof(vals_section));
-		pos += readn(in, &vals_section, hdr.keys_off - hdr.vals_off);
-		pos += readn(in, &keys_section, sizeof(keys_section));
-	}
+	EXPECT(keys_first, "How did you managed that ?");
+	EXPECT(hdr.vals_off - hdr.keys_off <= sizeof(keys_section), "too much keys");
+	pos += readn(in, &keys_section, hdr.vals_off - hdr.keys_off);
+	pos += readn(in, &vals_section, sizeof(vals_section));
+
 	uint32_t expected_key = 0, expected_val = 0;
-	for (sfo_entry_t*ent = entries; ent < entries+hdr.entry_count; ent++) {
+	for (sfo_entry_t* ent = entries; ent < entries + hdr.entry_count; ent++) {
 		dprintf(out, "%s", keys_section + ent->key_off);
 		char* val = vals_section + ent->val_off;
-		if ((ent->type != PSF_TYPE_STR && ent->type != PSF_TYPE_U32) || // explicit type if neither STR nor U32
-		    (ent->type == PSF_TYPE_STR && val[0]=='0' && (val[1]=='x' || val[1]=='X'))) { // or if is string and is 0x...
-			dprintf(out, ":%i",ent->type);
+		if ((ent->type != PSF_TYPE_STR && ent->type != PSF_TYPE_U32) ||                         // explicit type if neither STR nor U32
+		    (ent->type == PSF_TYPE_STR && val[0] == '0' && (val[1] == 'x' || val[1] == 'X'))) { // or if is string and is 0x...
+			dprintf(out, ":%i", ent->type);
 		}
 		if ((ent->type != PSF_TYPE_U32 || ent->val_length != 4) &&
-		    (ent->type == PSF_TYPE_STR && ent->val_length != 1 + strlen(vals_section+ent->val_off))) {
+		    (ent->type == PSF_TYPE_STR && ent->val_length != 1 + strlen(vals_section + ent->val_off))) {
 			dprintf(out, "*%i", ent->val_length);
 		}
-		if ((ent->type == PSF_TYPE_U32 && ent->val_limit != 4) ||
-		    (ent->type == PSF_TYPE_STR && ent->val_limit != ALIGN(ent->val_length-1))) {
+		if ((ent->type == PSF_TYPE_U32 && ent->val_limit != 4) || (ent->type == PSF_TYPE_STR && ent->val_limit != ALIGN(ent->val_length - 1))) {
 			dprintf(out, "/%i", ent->val_limit);
 		}
 		if (ent->alignment != 4) {
 			dprintf(out, "~%i", ent->alignment);
 		}
-		if (ent->key_off!= expected_key) {
+		if (ent->key_off != expected_key) {
 			dprintf(out, "@%i", ent->key_off);
 		}
-		if (ent->val_off!= expected_val) {
+		if (ent->val_off != expected_val) {
 			dprintf(out, "-%i", ent->val_off);
 		}
 		if (ent->type == PSF_TYPE_U32) {
-			dprintf(out, "=0x%08X\n", *((uint32_t*)(vals_section+ent->val_off)));
+			dprintf(out, "=0x%08X\n", *((uint32_t*)(vals_section + ent->val_off)));
 		} else {
-			dprintf(out, "=\"%.*s\"\n", ent->val_length, vals_section+ent->val_off); // TODO escape (& unescape) quotes ?
+			dprintf(out, "=\"%.*s\"\n", ent->val_length,
+			        vals_section + ent->val_off); // TODO escape (& unescape) quotes ?
 		}
 		expected_key += strlen(keys_section + ent->key_off) + 1;
 		expected_val += ent->val_limit;
@@ -151,43 +154,55 @@ ssize_t psv_sfo_to_args(int in, int out) {
 	return pos;
 }
 
-int psv_sfo_from_args(int argc, char **argv, char**keys, char**vals, sfo_entry_t*entries) {
-	for (int i = 0 ; i < argc; i++) {
+int psv_sfo_from_args(int argc, char** argv, char** keys, char** vals, sfo_entry_t* entries) {
+	for (int i = 0; i < argc; i++) {
 		sfo_entry_t* entry = &entries[i];
 
-		char *val = strchr(argv[i] , '=');
+		char* val = strchr(argv[i], '=');
 		EXPECT(val, "no value given for %s", argv[i]);
-		*val++ = 0;
+		*val++  = 0;
 		vals[i] = val;
 
 		memset(entry, 0xFF, sizeof(*entry));
-		for(char* k = keys[i] = argv[i]; *k; k++) {
-			switch(*k) {
-				case ':': entry->type      = (uint8_t)  strtoul(k + 1, NULL, 0); break;
-				case '*': entry->val_length= (uint32_t) strtoul(k + 1, NULL, 0); break;
-				case '/': entry->val_limit = (uint32_t) strtoul(k + 1, NULL, 0); break;
-				case '~': entry->alignment = (uint8_t)  strtoul(k + 1, NULL, 0); break;
-				case '@': entry->key_off   = (uint16_t) strtoul(k + 1, NULL, 0); break;
-				case '-': entry->val_off   = (uint32_t) strtoul(k + 1, NULL, 0); break;
-				default: continue;
+		for (char* k = keys[i] = argv[i]; *k; k++) {
+			switch (*k) {
+			case ':':
+				entry->type = (uint8_t)strtoul(k + 1, NULL, 0);
+				break;
+			case '*':
+				entry->val_length = (uint32_t)strtoul(k + 1, NULL, 0);
+				break;
+			case '/':
+				entry->val_limit = (uint32_t)strtoul(k + 1, NULL, 0);
+				break;
+			case '~':
+				entry->alignment = (uint8_t)strtoul(k + 1, NULL, 0);
+				break;
+			case '@':
+				entry->key_off = (uint16_t)strtoul(k + 1, NULL, 0);
+				break;
+			case '-':
+				entry->val_off = (uint32_t)strtoul(k + 1, NULL, 0);
+				break;
+			default:
+				continue;
 			}
 			*k = 0;
 		}
 	}
 	// setup defaults values if still undefined
 	psv_sfo_hydrate(argc, keys, vals, entries);
-	for (int i = 0 ; i < argc; i++) {
+	for (int i = 0; i < argc; i++) {
 		sfo_entry_t* entry = &entries[i];
-		DEBUG("%s:%i*%i/%i~%i@%i-%i=\"%s\"\n", keys[i],
-		      entry->type, entry->val_length, entry->val_limit, entry->alignment, entry->key_off, entry->val_off, vals[i]);
+		DEBUG("%s:%i*%i/%i~%i@%i-%i=\"%s\"\n", keys[i], entry->type, entry->val_length, entry->val_limit, entry->alignment, entry->key_off,
+		      entry->val_off, vals[i]);
 	}
 	return 0;
 }
-ssize_t writep(void*fd, const void* buf, size_t size) {
-	return write(*(int*)fd, buf,size);
-}
+
 int main(int argc, char** argv) {
-	argv++;argc--;
+	argv++;
+	argc--;
 	DEBUG("argc:%i piped<stdin:%i,stdout:%i>\n", argc, !isatty(STDIN_FILENO), !isatty(STDOUT_FILENO));
 
 	// arg-less input SFO => dump sfo as args
@@ -197,16 +212,18 @@ int main(int argc, char** argv) {
 	// output SFO requested
 	if (!isatty(STDOUT_FILENO) && argc) {
 		sfo_entry_t entries[MAX_SFO_ENTRY] = {};
-		char* keys[MAX_SFO_ENTRY] = {};
-		char* vals[MAX_SFO_ENTRY] = {};
+		char*       keys[MAX_SFO_ENTRY]    = {};
+		char*       vals[MAX_SFO_ENTRY]    = {};
 		EXPECT(argc < countof(entries), "Too much arguments");
 		EXPECT(!psv_sfo_from_args(argc, argv, keys, vals, entries), "Unable to parse arguments");
 		DEBUG("emitting %i tuples\n", argc);
-		return psv_sfo_emit(argc, keys, vals, entries, writep, &(int[]) {STDOUT_FILENO}) < 0;
+		return psv_sfo_emit(argc, keys, vals, entries, writep, &(int[]){STDOUT_FILENO}) < 0;
 	}
 	if (!isatty(STDIN_FILENO) && argc) {
 		fprintf(stderr, "output not piped but given args:\n");
-		for(int i=0;i<argc;i++)fprintf(stderr, "%s\n",argv[i]);
+		for (int i = 0; i < argc; i++) {
+			fprintf(stderr, "%s\n", argv[i]);
+		}
 	}
 	if (!isatty(STDOUT_FILENO) && !argc) {
 		fprintf(stderr, "output piped but no tuple to output\n");

@@ -1,0 +1,57 @@
+version: 2
+firmware: 3.60
+modules:
+  SceAppMgr:
+    nid: 0xDBB29DB7
+    libraries:
+      SceAppMgrForDriver:
+        kernel: true
+        nid: 0xDCE180F8
+        functions:
+          ksceAppMgrWorkDirMount: 0x3A0A9B82
+      SceAppMgr:
+        kernel: false
+        nid: 0x8AF17416
+        functions:
+          sceAppMgrSetSystemImposeState2: 0x2163759A
+          sceAppMgrSuspendBgAppByShell: 0x5BCF6927
+          sceAppMgrSuspendUntilActivated: 0xECEC7F90
+      SceSharedFb:
+        kernel: false
+        nid: 0x32A0442E
+        functions:
+          sceSharedFbUpdateProcessEnd: 0x565A9AB6
+  SceAppUtil:
+    nid: 0xCE3E25D4
+    libraries:
+      SceAppUtil:
+        kernel: false
+        nid: 0x48E01D74
+        functions:
+          sceAppUtilInit: 0xDAFFE671
+          sceAppUtilLaunchWebBrowser: 0xF19D0423
+          sceAppUtilShutdown: 0xB220B00B
+      SceAppUtilCache:
+        kernel: false
+        nid: 0xE96B941B
+        functions:
+          sceAppUtilCacheGetDevInfo: 0x1171B736
+          sceAppUtilCacheMount: 0x0AA56143
+          sceAppUtilCacheUmount: 0x72D26BF4
+      SceAppUtilExt:
+        kernel: false
+        nid: 0x76D1A509
+        functions:
+          sceAppUtilExtVideoMount: 0xA0380CF7
+          sceAppUtilExtVideoUmount: 0x02E1E2C4
+      SceAppUtilBook:
+        nid: 0xDA27A9D3
+        kernel: true
+        functions:
+          ksceAppUtilBookMount: 0xFDAAF091
+          ksceAppUtilBookUmount: 0x9C1794C2
+      SceAppUtilAddcontForce:
+        nid: 0x9D061921
+        kernel: true
+        functions:
+          ksceAppUtilAddcontForceAddcontMount: 0x6087E5F7

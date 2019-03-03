@@ -1,30 +1,66 @@
 .TH docs/psv-sfo.1.md 1 PSVSDK
 .SH NAME
-  psv-sfo - Generate a System File Object
+  psv-sfo - Create/Dump/Edit a System File Object
 
 .SH SYNOPSIS
-  psv-sfo [KEY=STR | KEY=+INT]... > out.sfo
-    Generate a SFO with the given KEY=VAL tuples
+	psv-sfo < dumped.sfo
+	psv-sfo OPTIONS... > create.sfo
+	psv-sfo < base.sfo | xargs psv-sfo [OPTIONS]... > extended.sfo
+	psv-sfo < base.sfo | grep -v LAREA_TYPE | xargs psv-sfo > no_larea.sfo
+	psv-sfo < base.sfo | grep -v LAREA_TYPE | xargs psv-sfo LAREA_TYPE=0x2 > replaced_larea.sfo
 
-  psv-sfo < in.sfo
-    Dump given in.sfo
+.SH OPTIONS
+  each OPTION consist of a KEY=VALUE pair with possible tuning:
 
-  psv-sfo
-    Show the help screen
+	KEY[:type][*size][/limit][~align][@keyoff][-valoff]=VALUE
 
-.SH EXAMPLES
-  Generate a default SFO
-    psv-sfo > param.sfo
+  - `:type`   default to number (4) if value match the (0x...) pattern, string (2) otherwise
+  - `*length` default to strlen(VAL)+1 for string (:2) and sizeof(u32) for number (:4)
+  - `/limit`  default to CEIL(4, size)
+  - `~align`  default to 4
+  - `@keyoff` default to (prev_key.offset + strlen(prev_key) + 1)
+  - `-valoff` default to (prev_val.offset + prev_val.limit)
 
-  Dump a SFO file
-    psv-sfo < param.sfo
+.SH EXAMPLES:
+  Build a Vita valid SFO:
 
-  Dump the default generated SFO on the fly
-    psv-sfo < param.sfo
+	psv-sfo APP_VER=1.0 CATEGORY=gd PSP2_SYSTEM_VER=0x0 ATTRIBUTE=0x8000 \
+	        TITLE/128="hello" STITLE="world" TITLE_ID=ABCD99999 > a.sfo
 
-  Generate a SFO some string anf integer values (notice the +)
-    psv-sfo STITLE=MyGame ATTRIBUTE=+0xFF > param.sfo
+  Remove the BOOT_FILE attribute from a base.sfo
 
-  psv-sfo | psv-sfo # generate a default sfo then dump it
+	psv-sfo < base.sfo | grep -v BOOT_FILE | xargs psv-sfo > stripped.sfo
+
+.SH MANDATORY ENTRIES
+	APP_VER=01.00
+	ATTRIBUTE=0x00000000
+	CATEGORY=gd
+	PSP2_SYSTEM_VER 0x00000000
+	TITLE="Long title"
+	STITLE="Short title"
+	TITLE_ID=ABCD99999
+
+.SH OPTIONAL ENTRIES
+	ATTRIBUTE2=0x00000000
+	ATTRIBUTE_MINOR=0x00000010
+	BOOT_FILE=""
+	CONTENT_ID=ABCD12345
+	EBOOT_APP_MEMSIZE=0x00000000
+	EBOOT_ATTRIBUTE=0x00000000
+	EBOOT_PHY_MEMSIZE=0x00000000
+	LAREA_TYPE=0x00000000
+	NP_COMMUNICATION_ID="myId"
+	PARENTAL_LEVEL=0x00000000
+	PSP2_DISP_VER=00.000
+	TITLE="full title"
+	VERSION=00.00
+
+.SH ENVIRONMENT VARIABLES
+  - DEBUG (any value): print more details on stderr
+
+.SH CAUTION
+  - psv-sfo allow multiple same KEYS, also multiple KEYS pointing to the same value (using manual offset)
+  - psv-sfo can produce undefined output for (manually given) overlapping values or unordered KEY/VAL offset
+
 .SH SEE ALSO
   - sfo(5)

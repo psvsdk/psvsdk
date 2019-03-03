@@ -1,13 +1,14 @@
 BasedOnStyle: LLVM
 IndentWidth: 8
 TabWidth: 8
-UseTab: ForContinuationAndIndentation
+UseTab: ForIndentation
 BreakBeforeBraces: Linux
-ColumnLimit: 120
+ColumnLimit: 160
 AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
 BreakBeforeBraces: Attach
-PointerAlignment: Left
+ReflowComments: false
+PointerAlignment: Left # incompatible when Align*Decl
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignTrailingComments: true

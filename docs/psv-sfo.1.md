@@ -3,10 +3,10 @@
 
 # SYNOPSIS
 	psv-sfo < dumped.sfo
-	psv-sfo [OPTIONS]... > create.sfo
-	psv-sfo < base.sfo | xargs -o psv-sfo [OPTIONS]... > extended.sfo
-	psv-sfo < base.sfo | grep -v LAREA_TYPE | xargs -o psv-sfo > no_larea.sfo
-	psv-sfo < base.sfo | grep -v LAREA_TYPE | xargs -o psv-sfo LAREA_TYPE=0x2 > replaced_larea.sfo
+	psv-sfo OPTIONS... > create.sfo
+	psv-sfo < base.sfo | xargs psv-sfo [OPTIONS]... > extended.sfo
+	psv-sfo < base.sfo | grep -v LAREA_TYPE | xargs psv-sfo > no_larea.sfo
+	psv-sfo < base.sfo | grep -v LAREA_TYPE | xargs psv-sfo LAREA_TYPE=0x2 > replaced_larea.sfo
 
 # OPTIONS
   each OPTION consist of a KEY=VALUE pair with possible tuning:
@@ -31,18 +31,19 @@
 	psv-sfo < base.sfo | grep -v BOOT_FILE | xargs psv-sfo > stripped.sfo
 
 # MANDATORY ENTRIES
-	STITLE="Short title"
-	TITLE_ID=ABCD99999
 	APP_VER=01.00
+	ATTRIBUTE=0x00000000
 	CATEGORY=gd
 	PSP2_SYSTEM_VER 0x00000000
+	TITLE="Long title"
+	STITLE="Short title"
+	TITLE_ID=ABCD99999
 
 # OPTIONAL ENTRIES
-	ATTRIBUTE=0x00000000
 	ATTRIBUTE2=0x00000000
 	ATTRIBUTE_MINOR=0x00000010
 	BOOT_FILE=""
-	CONTENT_ID="..."
+	CONTENT_ID=ABCD12345
 	EBOOT_APP_MEMSIZE=0x00000000
 	EBOOT_ATTRIBUTE=0x00000000
 	EBOOT_PHY_MEMSIZE=0x00000000
@@ -59,13 +60,6 @@
 # CAUTION
   - psv-sfo allow multiple same KEYS, also multiple KEYS pointing to the same value (using manual offset)
   - psv-sfo can produce undefined output for (manually given) overlapping values or unordered KEY/VAL offset
-  - `xargs` piping does not work natively because both psv-sfo invocation will have they stdin and stdout piped.
-    In order to forward extracted values from `in.sfo` into the `out.sfo`, re-open stdin using `xargs -o`.
-    This way, the second invocation will behave as if you called it with all the values as argv and no stdin pipes.
-
-
-	psv-sfo < in.sfo | xargs -o psv-sfo > out.sfo # GOOD
-	psv-sfo < in.sfo | xargs    psv-sfo > out.sfo # BAD
 
 # SEE ALSO
   - sfo(5)

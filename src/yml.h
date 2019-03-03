@@ -1,18 +1,33 @@
 /**
-	YAML structure example
+# Vita NID DB YAML structure
 
-version: 2
-firmware: 3.60
-modules:
-  SceAppMgr:
-    nid: 0xDBB29DB7
-    libraries:
-    --SceAppMgrForDriver:
-    ----kernel: true
-    ----nid: 0xDCE180F8
-    ----functions:
-    ------ksceAppMgrAcInstGetAcdirParam: 0x474AABDF
-    ------...
+	version: 2
+	firmware: 3.60
+	modules:
+	  SceAppMgr:
+	    nid: 0xDBB29DB7
+	    libraries:
+	      SceAppMgrForDriver:
+	        kernel: true
+	        nid: 0xDCE180F8
+	        functions:
+	          ksceAppMgrAcInstGetAcdirParam: 0x474AABDF
+	          ...
+
+# Vita ELF Export YAML structure
+
+	MyModule:
+	  attributes: 0
+	  version:
+	    major: 1
+	    minor: 0
+	  main:
+	    start: module_start
+	  libraries:
+	    MyLib:
+	      syscall: false
+	      functions:
+	        - ml_funcA
 */
 #ifndef YML_H
 #define YML_H
@@ -27,7 +42,7 @@ modules:
 #define YML_MAX_EXPNAME 128
 #define YML_MAX_NID 16
 
-static char* yml_readline(int fd,char* line, size_t limit) {
+static char* yml_readline(int fd, char* line, size_t limit) {
 	for (int len = 0; read(fd, line + len, sizeof(*line)) > 0 && len < limit; len++) {
 		if (line[len] == '\n') {
 			line[len] = '\0';
@@ -99,11 +114,11 @@ void yml_emitter(int fd, yml_db_line line) {
 	}
 }
 void yml_walker(int fd, yml_walker_cb cb, void* ctx) {
-	char     mod_name[YML_MAX_MODNAME], lib_name[YML_MAX_LIBNAME], exp_name[YML_MAX_EXPNAME];
-	uint32_t mod_nid, lib_nid, lib_kernel, exp_nid, yml_version, yml_firmware;
+	char        mod_name[YML_MAX_MODNAME], lib_name[YML_MAX_LIBNAME], exp_name[YML_MAX_EXPNAME];
+	uint32_t    mod_nid, lib_nid, lib_kernel, exp_nid, yml_version, yml_firmware;
 	static char lineBuffer[YML_MAX_LINE];
 
-	for (char *line, *val; (line = yml_readline(fd,lineBuffer,sizeof(lineBuffer)));) {
+	for (char *line, *val; (line = yml_readline(fd, lineBuffer, sizeof(lineBuffer)));) {
 		strtok_r(line, ":", &val);
 		int i = yml_indent(line);
 		line += i;
@@ -122,13 +137,11 @@ void yml_walker(int fd, yml_walker_cb cb, void* ctx) {
 			lib_kernel = strstr(val, "true") != NULL;
 		} else if (i == 8 && !strcmp(line, "nid")) {
 			lib_nid = strtoul(val, NULL, 0);
-			cb(ctx,
-			   (yml_db_line){yml_version, yml_firmware, mod_name, mod_nid, lib_name, lib_nid, lib_kernel});
+			cb(ctx, (yml_db_line){yml_version, yml_firmware, mod_name, mod_nid, lib_name, lib_nid, lib_kernel});
 		} else if (i == 10) {
 			strncpy(exp_name, line, sizeof(exp_name));
 			exp_nid = strtoul(val, NULL, 0);
-			cb(ctx, (yml_db_line){yml_version, yml_firmware, mod_name, mod_nid, lib_name, lib_nid,
-					      lib_kernel, exp_name, exp_nid});
+			cb(ctx, (yml_db_line){yml_version, yml_firmware, mod_name, mod_nid, lib_name, lib_nid, lib_kernel, exp_name, exp_nid});
 		}
 	}
 	cb(ctx, (yml_db_line){});

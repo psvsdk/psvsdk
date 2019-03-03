@@ -1,0 +1,17 @@
+.TH docs/psv-self.1.md 1 PSVSDK
+.SH NAME
+  psv-self - Generate a (Fake) Signed ELF
+
+.SH SYNOPSIS
+	psv-self [--help] [OPTIONS] <in.velf >out.self
+
+.SH OPTIONS
+	Use `psv-self --help` to get a list of possible OPTIONS
+
+.SH EXAMPLES
+
+	psv-self <in.velf >out.self
+	psv-self --authid=2  <in.velf >safe.self
+
+.SH SEE ALSO
+  - self(5)

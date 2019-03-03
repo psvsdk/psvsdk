@@ -67,15 +67,14 @@ Code | Name | Operation
 
 typedef union {
 	struct {
-		uint32_t r_format : 4; // 0x1 : 8 bytes version
-		uint32_t r_symseg : 4; // index of the program segment containing the data to point to
-		uint32_t r_code : 8;   // relocation code defined in ARM ELF
-		uint32_t r_datseg : 4; // index of the program segment containing the pointer that is to be relocated.
-		uint32_t
-			 r_offset_lo : 12; // offset into the segment indexed by r_datseg. This is the pointer to relocate.
+		uint32_t r_format : 4;     // 0x1 : 8 bytes version
+		uint32_t r_symseg : 4;     // index of the program segment containing the data to point to
+		uint32_t r_code : 8;       // relocation code defined in ARM ELF
+		uint32_t r_datseg : 4;     // index of the program segment containing the pointer that is to be relocated.
+		uint32_t r_offset_lo : 12; // offset into the segment indexed by r_datseg. This is the pointer to relocate.
 		uint32_t r_offset_hi : 20;
 		uint32_t r_addend : 12; // offset into the segment indexed byrsymseg. This is what is written to the
-					// relocated pointer.
+		                        // relocated pointer.
 	} r_short_entry;
 	struct {
 		uint32_t r_format : 4; // 0x0 : 12 bytes version
