@@ -70,7 +70,7 @@ test_export:
 test_velf:
 	bin/psv-velf < tests/main.elf     | cmp tests/main.velf
 test_module:
-	psv-cc <<< "TODO:{U,K} App : vector maths, load {U,K} module, call {U,K} exports"
+	psv-gcc <<< "TODO:{U,K} App : vector maths, load {U,K} module, call {U,K} exports"
 
 package: compile lib
 	tar -zcf psvsdk.tar.gz docs bin #headers samples
