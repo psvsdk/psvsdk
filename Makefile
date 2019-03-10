@@ -68,7 +68,9 @@ test_db:
 test_export:
 	bin/psv-export
 test_velf:
-	bin/psv-velf < tests/main.elf     | cmp tests/main.velf
+	bin/psv-velf tests/main.elf /tmp/main.velf
+	cmp tests/main.velf /tmp/main.velf
+	rm /tmp/main.velf
 test_module:
 	psv-gcc <<< "TODO:{U,K} App : vector maths, load {U,K} module, call {U,K} exports"
 

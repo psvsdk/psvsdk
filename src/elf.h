@@ -70,30 +70,30 @@ typedef struct {
 	uint32_t p_align;
 } Elf32_Phdr;
 
-// SECTION
-enum { SHT_NULL          = 0,          // No associated section (inactive entry).
-       SHT_PROGBITS      = 1,          // Program-defined contents.
-       SHT_SYMTAB        = 2,          // Symbol table.
-       SHT_STRTAB        = 3,          // String table.
-       SHT_RELA          = 4,          // Relocation entries; explicit addends.
-       SHT_HASH          = 5,          // Symbol hash table.
-       SHT_DYNAMIC       = 6,          // Information for dynamic linking.
-       SHT_NOTE          = 7,          // Information about the file.
-       SHT_NOBITS        = 8,          // Data occupies no space in the file.
-       SHT_REL           = 9,          // Relocation entries; no explicit addends.
-       SHT_SHLIB         = 10,         // Reserved.
-       SHT_DYNSYM        = 11,         // Symbol table.
-       SHT_INIT_ARRAY    = 14,         // Pointers to initialization functions.
-       SHT_FINI_ARRAY    = 15,         // Pointers to termination functions.
-       SHT_PREINIT_ARRAY = 16,         // Pointers to pre-init functions.
-       SHT_GROUP         = 17,         // Section group.
-       SHT_SYMTAB_SHNDX  = 18,         // Indices for SHN_XINDEX entries.
-       SHT_LOOS          = 0x60000000, // Lowest operating system-specific type.
-       SHT_HIOS          = 0x6fffffff, // Highest operating system-specific type.
-       SHT_LOPROC        = 0x70000000, // Lowest processor arch-specific type.
-       SHT_HIPROC        = 0x7fffffff, // Highest processor arch-specific type.
-       SHT_LOUSER        = 0x80000000, // Lowest type reserved for applications.
-       SHT_HIUSER        = 0xffffffff  // Highest type reserved for applications.
+enum {                                  // SECTION
+	SHT_NULL          = 0,          // No associated section (inactive entry).
+	SHT_PROGBITS      = 1,          // Program-defined contents.
+	SHT_SYMTAB        = 2,          // Symbol table.
+	SHT_STRTAB        = 3,          // String table.
+	SHT_RELA          = 4,          // Relocation entries; explicit addends.
+	SHT_HASH          = 5,          // Symbol hash table.
+	SHT_DYNAMIC       = 6,          // Information for dynamic linking.
+	SHT_NOTE          = 7,          // Information about the file.
+	SHT_NOBITS        = 8,          // Data occupies no space in the file.
+	SHT_REL           = 9,          // Relocation entries; no explicit addends.
+	SHT_SHLIB         = 10,         // Reserved.
+	SHT_DYNSYM        = 11,         // Symbol table.
+	SHT_INIT_ARRAY    = 14,         // Pointers to initialization functions.
+	SHT_FINI_ARRAY    = 15,         // Pointers to termination functions.
+	SHT_PREINIT_ARRAY = 16,         // Pointers to pre-init functions.
+	SHT_GROUP         = 17,         // Section group.
+	SHT_SYMTAB_SHNDX  = 18,         // Indices for SHN_XINDEX entries.
+	SHT_LOOS          = 0x60000000, // Lowest operating system-specific type.
+	SHT_HIOS          = 0x6fffffff, // Highest operating system-specific type.
+	SHT_LOPROC        = 0x70000000, // Lowest processor arch-specific type.
+	SHT_HIPROC        = 0x7fffffff, // Highest processor arch-specific type.
+	SHT_LOUSER        = 0x80000000, // Lowest type reserved for applications.
+	SHT_HIUSER        = 0xffffffff  // Highest type reserved for applications.
 };
 
 /* sh_flags */
@@ -135,22 +135,24 @@ typedef struct {
 #define ELF32_R_SYM(INFO) ((INFO) >> 8)
 #define ELF32_R_TYPE(INFO) ((INFO)&0xFF)
 
-enum { R_ARM_NONE            = 0,
-       R_ARM_ABS32           = 2,
-       R_ARM_REL32           = 3,
-       R_ARM_THM_CALL        = 10,
-       R_ARM_CALL            = 28,
-       R_ARM_JUMP24          = 29,
-       R_ARM_THM_JUMP24      = 30,
-       R_ARM_TARGET1         = 38,
-       R_ARM_V4BX            = 40,
-       R_ARM_TARGET2         = 41,
-       R_ARM_PREL31          = 42,
-       R_ARM_MOVW_ABS_NC     = 43,
-       R_ARM_MOVT_ABS        = 44,
-       R_ARM_THM_MOVW_ABS_NC = 47,
-       R_ARM_THM_MOVT_ABS    = 48,
-       R_ARM_THM_PC11        = 102 };
+enum { // RELOC
+	R_ARM_NONE            = 0,
+	R_ARM_ABS32           = 2,
+	R_ARM_REL32           = 3,
+	R_ARM_THM_CALL        = 10,
+	R_ARM_CALL            = 28,
+	R_ARM_JUMP24          = 29,
+	R_ARM_THM_JUMP24      = 30,
+	R_ARM_TARGET1         = 38,
+	R_ARM_V4BX            = 40,
+	R_ARM_TARGET2         = 41,
+	R_ARM_PREL31          = 42,
+	R_ARM_MOVW_ABS_NC     = 43,
+	R_ARM_MOVT_ABS        = 44,
+	R_ARM_THM_MOVW_ABS_NC = 47,
+	R_ARM_THM_MOVT_ABS    = 48,
+	R_ARM_THM_PC11        = 102
+};
 typedef struct {
 	uint32_t r_offset;
 	// uint32_t r_info;

@@ -1,5 +1,9 @@
 language: C
 dist: xenial
+branches:
+  except:
+  - /^dev-.*$/
+
 addons:
   apt:
     sources:

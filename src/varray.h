@@ -56,10 +56,8 @@ varray* varray_new(int element_size, int initial_allocation) {
 }
 
 void varray_destroy(varray* va) {
-	int i;
-
 	if (va->destroy_func != NULL) {
-		for (i = 0; i < va->count; i++) {
+		for (int i = 0; i < va->count; i++) {
 			va->destroy_func(_IDX(i));
 		}
 	}
@@ -70,53 +68,30 @@ void varray_destroy(varray* va) {
 void varray_free(varray* va) {
 	if (va == NULL)
 		return;
-
 	varray_destroy(va);
 	free(va);
 }
 
 void* varray_extract_array(varray* va) {
-	void* array;
-
 	if (va->count == 0) {
 		varray_destroy(va);
 		return NULL;
 	}
-
-	array = realloc(va->data, va->count * va->element_size);
+	void* array = realloc(va->data, va->count * va->element_size);
 	memset(va, 0, sizeof(varray));
 	return array;
 }
 
 int varray_get_index(varray* va, void* element_ptr) {
-	if (va->data == NULL)
+	if ((va->data == NULL) || (element_ptr < va->data || element_ptr >= _IDX(va->count)) || ((element_ptr - va->data) % va->element_size != 0))
 		return -1;
-
-	if (element_ptr < va->data || element_ptr >= _IDX(va->count))
-		return -1;
-
-	if ((element_ptr - va->data) % va->element_size != 0)
-		return -1;
-
 	return (element_ptr - va->data) / va->element_size;
 }
 
 static int grow_array(varray* va) {
-	int   new_allocation;
-	void* new_data;
-
-	if (va->allocation == 0)
-		new_allocation = 16;
-	else
-		new_allocation = va->allocation * 2;
-
-	new_data = realloc(va->data, va->element_size * (new_allocation + 1));
-	if (new_data == NULL)
-		return 0;
-
-	va->data       = new_data;
-	va->allocation = new_allocation;
-	return 1;
+	va->allocation = va->allocation ? va->allocation * 2 : 16;
+	va->data       = realloc(va->data, va->element_size * (va->allocation + 1));
+	return va->data != NULL;
 }
 #define GROW_IF_NECESSARY(va, failure_retval)            \
 	do {                                             \
