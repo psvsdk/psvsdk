@@ -1,6 +1,6 @@
-- psv-sfo = KO (missing entry ?)
+- psv-sfo = OK
 - psv-self = OK
-- psv-vpk = OK (injected SFO=bad)
+- psv-vpk = OK
 - psv-velf
 	- import/export
 	- remove deps : elf

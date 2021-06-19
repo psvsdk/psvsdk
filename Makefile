@@ -1,4 +1,6 @@
-CFLAGS?=
+# default compile flags
+# override example: CFLAGS=-O3 CC=clang make all
+CFLAGS?=-s
 FMT_BIN?=clang-format-7 # fixed version for consistency
 FMT_SRC=$(wildcard src/*.h src/*.c)
 PSV_SRC=$(wildcard src/psv-*.c)
@@ -15,8 +17,10 @@ ELF_TAG=0.8.13
 ELF_TMP=libelf
 
 # list non-file based targets (meaven lifecycle naming):
-.PHONY: compile lib docs validate test package install coverage verify clean
+.PHONY: all compile lib docs validate test package install coverage verify clean
 
+# 1st target = default target (all = alias to compile)
+all: compile
 compile: $(PSV_BIN)
 
 deps/lib/libelf.a:
@@ -24,8 +28,8 @@ deps/lib/libelf.a:
 	cd $(ELF_TMP) && ./configure --silent && touch po/de && make V=0 --silent all instroot=$(PWD)/deps prefix= install
 	rm -rf $(ELF_TMP)
 
-bin/psv-%: src/psv-%.c deps/lib/libelf.a
-	cat docs/$(notdir $@).1.md 2>&1 | xxd -i -c 99999 | xargs -I% $(CC) -DUSAGE='(char[]){0xa,%,0}' -std=gnu11 -I deps/include deps/lib/libelf.a -s $(CFLAGS) -o $@ $^
+bin/psv-%: src/psv-%.c
+	cat docs/$(notdir $@).1.md 2>&1 | xxd -i -c 99999 | xargs -I% $(CC) -DUSAGE='(char[]){0xa,%,0}' -std=gnu11 -I deps/include deps/lib/libelf.a $(CFLAGS) -o $@ $^
 
 clean:
 	$(RM) $(PSV_BIN) *.gc* coverage *.tar.gz lib

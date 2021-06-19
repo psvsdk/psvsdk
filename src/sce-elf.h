@@ -974,8 +974,8 @@ int sce_elf_discard_invalid_relocs(const vita_elf_t* ve, vita_elf_rela_table_t* 
 			/* We can get -1 here for some debugging-related relocations.
 			 * These are done against debug sections that aren't mapped to any segment.
 			 * Just ignore these */
-			if (datseg == -1)
-				vrela->type = R_ARM_NONE;
+			//if (datseg == -1)
+			//	vrela->type = R_ARM_NONE;
 		}
 	}
 	return 1;

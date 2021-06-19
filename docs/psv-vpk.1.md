@@ -1,23 +1,25 @@
 # NAME
-  psv-vpk - Generate a Vita PacKage
+
+psv-vpk - Generate a Vita PacKage
 
 # SYNOPSIS
-	psv-vpk [HOST_PATH[:VPK_PATH]]... [<in.self] >out.vpk
+
+    psv-vpk [HOST_PATH[:VPK_PATH]]... > out.vpk
 
 # OPTIONS
- - HOST_PATH: path on the host filesystem (file or folder)
- - VPK_PATH:  path inside the package (HOST_PATH if no given)
+
+  - HOST_PATH: path on the host filesystem (file or folder)
+  - VPK_PATH:  path inside the package (HOST_PATH if no given)
 
 # EXAMPLES
 
-	psv-vpk < a.self
-	psv-vpk sce_sys assets:data a.self:eboot.bin
-	psv-vpk <(psv-sfo TITLE="Hello World" ...):sce_sys/param.sfo < a.self
+    psv-vpk app.sfo:sce_sys/param.sfo app.self:eboot.bin
 
 # NOTES
 
-  Archived files will have they CRC field unset (because unchecked during unpacking)
-  To extract VPK simply unzip it using: `unzip -od. *.vpk` (ignore bad CRC warning)
+Generated archive won't have CRCs (unused by the installer)
+This can be seen as an issue from regular archive manager.
+You can still extract them using: `unzip -od. no-crc.vpk`
 
 # SEE ALSO
   - vpk(5)
