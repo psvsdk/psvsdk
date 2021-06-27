@@ -1,7 +1,1 @@
-- psv-sfo = OK
-- psv-self = OK
-- psv-vpk = OK
-- psv-velf
-	- import/export
-	- remove deps : elf
 add docker usage example

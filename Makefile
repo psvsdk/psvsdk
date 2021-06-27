@@ -4,7 +4,9 @@ CFLAGS?=-s
 FMT_BIN?=clang-format-7 # fixed version for consistency
 FMT_SRC=$(wildcard src/*.h src/*.c)
 PSV_SRC=$(wildcard src/psv-*.c)
+PSV_SH_=$(wildcard src/psv-*.sh)
 PSV_BIN=$(PSV_SRC:src/%.c=bin/%)
+PSV_SHL=$(PSV_SH_:src/%.sh=bin/%)
 OUT_DIR=/usr/local/bin
 MAN_DIR=/usr/local/share/man
 C_FILES=$(shell grep -l '/\*\*' src/psv-*.c)
@@ -21,28 +23,22 @@ ELF_TMP=libelf
 
 # 1st target = default target (all = alias to compile)
 all: compile
-compile: $(PSV_BIN)
+compile: $(PSV_BIN) $(PSV_SHL)
 
 deps/lib/libelf.a:
 	$(shell mkdir -p $(dir $@) $(ELF_TMP) && wget https://github.com/Distrotech/libelf/archive/master.tar.gz -qO- | tar xz --strip-components=1 -C $(ELF_TMP))
 	cd $(ELF_TMP) && ./configure --silent && touch po/de && make V=0 --silent all instroot=$(PWD)/deps prefix= install
 	rm -rf $(ELF_TMP)
+bin:; mkdir -p $@
+bin/psv-%: src/psv-%.sh|bin; cp $^ $@
+bin/psv-%: src/psv-%.c |bin; cat docs/$(notdir $@).1.md 2>&1 | xxd -i -c 99999 | xargs -I% $(CC) -DUSAGE='(char[]){0xa,%,0}' -std=gnu11 -I deps/include $^ deps/lib/libelf.a $(CFLAGS) -o $@
 
-bin/psv-%: src/psv-%.c
-	cat docs/$(notdir $@).1.md 2>&1 | xxd -i -c 99999 | xargs -I% $(CC) -DUSAGE='(char[]){0xa,%,0}' -std=gnu11 -I deps/include deps/lib/libelf.a $(CFLAGS) -o $@ $^
-
-clean:
-	$(RM) $(PSV_BIN) *.gc* coverage *.tar.gz lib
-
+clean:; $(RM) $(PSV_BIN) $(PSV_SHL) *.gc* coverage *.tar.gz lib
 docs: $(MAN1DST) $(MAN5DST) $(DOC1DST) $(DOC5DST)
-docs/%.5.md: src/%.h
-	awk '/\*\// {p=0};{if(p) print $0};/\/\*\*/ {p=1};' $^ > $@
-docs/%.1.md: src/%.c
-	awk '/\*\// {p=0};{if(p) print $0};/\/\*\*/ {p=1};' $^ > $@
-docs/%.5: docs/%.5.md
-	echo ".TH $(^:src/%.h=% 5) 5 PSVSDK" > $@; sed 's/^# /.SH /; s/^## /.SS /' < $^ >> $@
-docs/%.1: docs/%.1.md
-	echo ".TH $(^:src/%.c=% 1) 1 PSVSDK" > $@; sed 's/^# /.SH /; s/^## /.SS /' < $^ >> $@
+docs/%.5.md: src/%.h ; awk '/\*\// {p=0};{if(p) print $0};/\/\*\*/ {p=1};' $^ > $@
+docs/%.1.md: src/%.c ; awk '/\*\// {p=0};{if(p) print $0};/\/\*\*/ {p=1};' $^ > $@
+docs/%.5: docs/%.5.md; echo ".TH $(^:src/%.h=% 5) 5 PSVSDK" > $@; sed 's/^# /.SH /; s/^## /.SS /' < $^ >> $@
+docs/%.1: docs/%.1.md; echo ".TH $(^:src/%.c=% 1) 1 PSVSDK" > $@; sed 's/^# /.SH /; s/^## /.SS /' < $^ >> $@
 
 validate: format docs
 	@git diff docs src && exit || echo "\noutdated docs/src!\nplease review with 'git diff' and commit them before re-make $@\n" && exit 1
@@ -84,11 +80,6 @@ install: compile lib
 	mkdir -p $(MAN_DIR)/man5/ $(MAN_DIR)/man1/
 	cp docs/*.5 $(MAN_DIR)/man5/
 	cp docs/*.1 $(MAN_DIR)/man1/
-install_usr: compile lib
-	[ ! -z "$(DESTDIR)" ] # no writable PATH entries for binaries retry with sudo
-	echo cp bin/* $(lastword $(DESTDIR))
-	[ ! -z "$(MAN_DIR)" ] # no writable PATH entries for man pages retry with sudo
-	echo cp docs/man* $(lastword $(MAN_DIR))
 
 coverage:
 	make clean CFLAGS="-O0 --coverage" test

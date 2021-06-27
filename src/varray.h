@@ -1,6 +1,9 @@
 #ifndef VARRAY_H
 #define VARRAY_H
 
+#include <stdlib.h>
+#include <string.h>
+
 typedef struct {
 	void* data;
 
@@ -16,14 +19,11 @@ typedef struct {
 
 	/* Compare two array items, is passed to qsort */
 	int (*sort_compar)(const void* el1, const void* el2);
-	/* Compare a key and an array item, for search; sort_compare will be used if NULL */
+	/* Compare a key and an array item, for search; sort_compar will be used if NULL */
 	int (*search_compar)(const void* key, const void* element);
 } varray;
 
-#define VARRAY_ELEMENT(va, index) ((va)->data + ((index) * (va)->element_size))
-
-#include <stdlib.h>
-#include <string.h>
+#define VARRAY_ELEMENT(va, index) (void*)(((char*)(va)->data) + ((index) * (va)->element_size))
 
 #define _IDX(index) VARRAY_ELEMENT(va, index)
 
@@ -42,19 +42,6 @@ varray* varray_init(varray* va, int element_size, int initial_allocation) {
 	return va;
 }
 
-varray* varray_new(int element_size, int initial_allocation) {
-	varray* va = malloc(sizeof(varray));
-	if (va == NULL)
-		return NULL;
-
-	if (varray_init(va, element_size, initial_allocation) == NULL) {
-		free(va);
-		return NULL;
-	}
-
-	return va;
-}
-
 void varray_destroy(varray* va) {
 	int i;
 
@@ -65,14 +52,6 @@ void varray_destroy(varray* va) {
 	}
 	free(va->data);
 	memset(va, 0, sizeof(varray));
-}
-
-void varray_free(varray* va) {
-	if (va == NULL)
-		return;
-
-	varray_destroy(va);
-	free(va);
 }
 
 void* varray_extract_array(varray* va) {
@@ -86,19 +65,6 @@ void* varray_extract_array(varray* va) {
 	array = realloc(va->data, va->count * va->element_size);
 	memset(va, 0, sizeof(varray));
 	return array;
-}
-
-int varray_get_index(varray* va, void* element_ptr) {
-	if (va->data == NULL)
-		return -1;
-
-	if (element_ptr < va->data || element_ptr >= _IDX(va->count))
-		return -1;
-
-	if ((element_ptr - va->data) % va->element_size != 0)
-		return -1;
-
-	return (element_ptr - va->data) / va->element_size;
 }
 
 static int grow_array(varray* va) {
@@ -118,14 +84,14 @@ static int grow_array(varray* va) {
 	va->allocation = new_allocation;
 	return 1;
 }
-#define GROW_IF_NECESSARY(va, failure_retval)            \
-	do {                                             \
-		if ((va)->count >= (va)->allocation) {   \
-			if (!grow_array(va))             \
-				return (failure_retval); \
-		}                                        \
+#define GROW_IF_NECESSARY(va, failure_retval) \
+	do {                                        \
+		if ((va)->count >= (va)->allocation) {    \
+			if (!grow_array(va))                    \
+				return (failure_retval);              \
+		}                                         \
 	} while (0)
-
+/* if element is NULL in either function, the new element will be initialized to zero. */
 void* varray_push(varray* va, void* element) {
 	GROW_IF_NECESSARY(va, NULL);
 	if (element == NULL) {
@@ -141,7 +107,7 @@ void* varray_push(varray* va, void* element) {
 
 	return _IDX(va->count - 1);
 }
-
+/* _pop and _remove will return a value that is only valid until the next array insert. */
 void* varray_pop(varray* va) {
 	if (va->count == 0)
 		return NULL;
@@ -225,6 +191,7 @@ void* varray_sorted_insert_ex(varray* va, void* element, int allow_dup) {
 
 void* varray_sorted_insert(varray* va, void* element) { return varray_sorted_insert_ex(va, element, 1); }
 
+/* found_existing, if not NULL, will be set to 1 if an existing element was found, otherwise 0 */
 void* varray_sorted_search_or_insert(varray* va, const void* key, int* found_existing) {
 	int (*compar)(const void*, const void*);
 	int insert_idx;
