@@ -13,7 +13,7 @@ The psvsdk provides a set of tools to compile your C sources into a PSVita compa
 ![edit=s/svg/uml/](http://www.plantuml.com/plantuml/svg/JSxBgeCm40RWVPv2ibPV87WGphPqqQr8cIRnWhc494f1VFVMC2dkllbdafasHF1nrOg8UVJWfk9Px2Ifys0MCVlczkYPiK9sOG8d6sEDx1brOQj6pccPj4ar8CE5Wyrzjr1y_xBldf6T1YxlCjP0ovF_qQja3REfEJsglz-ABrDwVepnXauv5hZzqiX5lY3dfrc-C0s01rtd0gV9GLffnAhL1m00)
 
 - Compile `main.c` into an ARM ELF using [psv-gcc](docs/psv-gcc.1.md) which is `arm-none-eabi-gcc` with extra flags.
-- Convert this ARM ELF into a Vita ELF using [psv-velf](docs/psv-velf.1.md).
+- Convert this ARM ELF into a [Vita ELF](docs/velf.5.md) using [psv-velf](docs/psv-velf.1.md).
 - Sign this [`.velf`](docs/velf.5.md) using [psv-self](docs/psv-self.1.md) into a signed Elf [`.self`](docs/self.5.md).
 - Create an SFO file using [psv-sfo](docs/psv-sfo.1.md) to describe your application to the LiveArea (title, version, parental, ...).
 - Bundle both [`.self`](docs/self.5.md) and [`.sfo`](docs/sfo.5.md) into a [`.vpk`](docs/vpk.5.md) VitaPacKage using [psv-vpk](docs/psv-vpk.1.md).
