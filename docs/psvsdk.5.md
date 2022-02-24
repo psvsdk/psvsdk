@@ -10,7 +10,11 @@ If you don't need a specific psvsdk version, you can easily [build and install](
 
 The psvsdk provides a set of tools to compile your C sources into a PSVita compatible binary using the following workflow:
 
-![edit=s/svg/uml/](http://www.plantuml.com/plantuml/svg/JSxBgeCm40RWVPv2ibPV87WGphPqqQr8cIRnWhc494f1VFVMC2dkllbdafasHF1nrOg8UVJWfk9Px2Ifys0MCVlczkYPiK9sOG8d6sEDx1brOQj6pccPj4ar8CE5Wyrzjr1y_xBldf6T1YxlCjP0ovF_qQja3REfEJsglz-ABrDwVepnXauv5hZzqiX5lY3dfrc-C0s01rtd0gV9GLffnAhL1m00)
+```mermaid
+graph LR
+main.c & sceCtrl.a & sceNet.a --> psv-gcc --> main.elf --> psv-velf --> main.velf --> psv-self --> main.self --> psv-vpk --> main.vpk
+psv-sfo --> param.sfo --> psv-vpk
+```
 
 - Compile `main.c` into an ARM ELF using [psv-gcc](docs/psv-gcc.1.md) which is `arm-none-eabi-gcc` with extra flags.
 - Convert this ARM ELF into a [Vita ELF](docs/velf.5.md) using [psv-velf](docs/psv-velf.1.md).
